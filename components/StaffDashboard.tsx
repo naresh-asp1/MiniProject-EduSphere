@@ -1,40 +1,91 @@
 
 import React, { useState } from 'react';
-import { Student, Department, AttendanceRecord } from '../types';
-import { Edit3, Sparkles, Calendar, BookOpen, AlertTriangle, FileText, Search, Filter } from 'lucide-react';
+import { Student, Department, AttendanceRecord, StaffProfile } from '../types';
+import { Edit3, Sparkles, Calendar, BookOpen, AlertTriangle, FileText, Search, Filter, CheckSquare, Users } from 'lucide-react';
 import { generateStudentReport } from '../services/geminiService';
 
 interface StaffProps {
   students: Student[];
   setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
   departments: Department[];
+  currentUser: StaffProfile | undefined;
 }
 
-export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, departments }) => {
+export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, departments, currentUser }) => {
+  const [activeTab, setActiveTab] = useState<'attendance' | 'records'>('attendance');
+  
+  // -- ATTENDANCE TAB STATE --
+  const [selectedClassSubject, setSelectedClassSubject] = useState('');
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [attendanceList, setAttendanceList] = useState<{id: string, name: string, status: 'Present' | 'Absent'}[]>([]);
+
+  // -- RECORDS TAB STATE --
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
-
-  // Attendance State
-  const [attDate, setAttDate] = useState(new Date().toISOString().split('T')[0]);
-  const [attCourse, setAttCourse] = useState('');
-  const [attStatus, setAttStatus] = useState<'Present' | 'Absent'>('Present');
-
-  // Backlog State
   const [backlogSubject, setBacklogSubject] = useState('');
 
   const student = students.find(s => s.id === selectedStudentId);
 
+  // RESTRICTION: Staff can only view students in their own department in the Records tab
+  const staffDept = currentUser?.department;
+
   const filteredStudents = students.filter(s => {
-      const matchDept = deptFilter ? s.department === deptFilter : true;
+      const matchDept = staffDept ? s.department === staffDept : true;
       const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           s.id.toLowerCase().includes(searchTerm.toLowerCase());
       return matchDept && matchSearch;
   });
 
+  // --- ATTENDANCE LOGIC ---
+  const loadClassList = () => {
+      if (!selectedClassSubject) return;
+      // Find all students who have this subject in their marks list
+      // Note: Attendance allows viewing students from ANY department if they are enrolled in the subject
+      const classStudents = students.filter(s => s.marks.some(m => m.code === selectedClassSubject));
+      
+      setAttendanceList(classStudents.map(s => ({
+          id: s.id,
+          name: s.name,
+          status: 'Present' // Default to Present
+      })));
+  };
+
+  const toggleAttendanceStatus = (id: string) => {
+      setAttendanceList(prev => prev.map(item => 
+          item.id === id ? { ...item, status: item.status === 'Present' ? 'Absent' : 'Present' } : item
+      ));
+  };
+
+  const submitBulkAttendance = () => {
+      if (attendanceList.length === 0) return;
+
+      const updatedStudents = students.map(s => {
+          const attRecord = attendanceList.find(a => a.id === s.id);
+          if (attRecord) {
+              const newRecord: AttendanceRecord = {
+                  id: Math.random().toString(36),
+                  date: attendanceDate,
+                  courseCode: selectedClassSubject,
+                  status: attRecord.status,
+                  department: s.department
+              };
+              const newLog = [...s.attendanceLog, newRecord];
+              const total = newLog.length;
+              const present = newLog.filter(r => r.status === 'Present').length;
+              const percentage = total === 0 ? 100 : Math.round((present / total) * 100);
+              
+              return { ...s, attendanceLog: newLog, attendancePercentage: percentage };
+          }
+          return s;
+      });
+
+      setStudents(updatedStudents);
+      alert(`Attendance submitted for ${attendanceList.length} students.`);
+      setAttendanceList([]); // Reset
+  };
+
+  // --- RECORDS LOGIC ---
   const updateStudentState = (updatedStudent: Student) => {
     setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
   };
@@ -49,35 +100,6 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
 
     const updatedStudent = { ...student, marks: updatedMarks };
     updateStudentState(updatedStudent);
-  };
-
-  const addAttendanceRecord = () => {
-      if (!student || !attCourse) return;
-      
-      const newRecord: AttendanceRecord = {
-          id: Math.random().toString(36),
-          date: attDate,
-          courseCode: attCourse,
-          status: attStatus,
-          department: student.department
-      };
-
-      const newLog = [...student.attendanceLog, newRecord];
-      
-      // Recalculate Percentage
-      const total = newLog.length;
-      const present = newLog.filter(r => r.status === 'Present').length;
-      const percentage = total === 0 ? 100 : Math.round((present / total) * 100);
-
-      updateStudentState({ 
-          ...student, 
-          attendanceLog: newLog,
-          attendancePercentage: percentage
-      });
-      
-      // Reset form
-      setAttCourse('');
-      alert(`Attendance recorded: ${attStatus}`);
   };
 
   const addBacklog = () => {
@@ -100,214 +122,231 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
     setIsGenerating(false);
   };
 
+  const allocatedSubjects = currentUser?.allocatedSubjects || [];
+
   return (
-    <div className="flex h-[calc(100vh-5rem)] gap-6">
-      {/* Sidebar List */}
-      <div className="w-1/4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-        <div className="p-4 bg-gray-50 border-b space-y-3">
-           <div>
-               <h2 className="font-bold text-gray-700">Student Management</h2>
-               <p className="text-xs text-gray-500">Find and manage students</p>
-           </div>
-           
-           {/* FILTERS */}
-           <div className="space-y-2">
-               <div className="relative">
-                   <Search size={14} className="absolute left-2 top-2.5 text-gray-400" />
-                   <input 
-                     type="text" 
-                     placeholder="Search Name or Roll No..." 
-                     className="w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:border-indigo-500 outline-none"
-                     value={searchTerm}
-                     onChange={e => setSearchTerm(e.target.value)}
-                   />
-               </div>
-               <div className="relative">
-                   <Filter size={14} className="absolute left-2 top-2.5 text-gray-400" />
-                   <select 
-                     className="w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:border-indigo-500 outline-none bg-white appearance-none"
-                     value={deptFilter}
-                     onChange={e => setDeptFilter(e.target.value)}
-                   >
-                       <option value="">All Departments</option>
-                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                   </select>
-               </div>
-           </div>
-        </div>
-        <div className="overflow-y-auto flex-1">
-            {filteredStudents.length === 0 ? (
-                <div className="p-4 text-center text-xs text-gray-400">No students found matching filters.</div>
-            ) : (
-                <ul>
-                {filteredStudents.map(s => (
-                    <li key={s.id}>
-                    <button
-                        onClick={() => setSelectedStudentId(s.id)}
-                        className={`w-full text-left p-4 border-b border-gray-50 hover:bg-indigo-50 transition-colors flex justify-between items-center ${selectedStudentId === s.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
-                    >
-                        <div>
-                            <div className="font-medium text-gray-900">{s.name}</div>
-                            <div className="text-xs text-gray-500 font-mono">{s.id} • {s.grade}</div>
-                        </div>
-                    </button>
-                    </li>
-                ))}
-                </ul>
-            )}
-        </div>
+    <div className="h-[calc(100vh-5rem)] flex flex-col">
+      {/* Tab Navigation */}
+      <div className="bg-white border-b px-6 pt-4 flex gap-6">
+          <button 
+            onClick={() => setActiveTab('attendance')}
+            className={`pb-4 text-sm font-medium flex items-center gap-2 ${activeTab === 'attendance' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+              <Calendar size={18} /> Class Attendance
+          </button>
+          <button 
+            onClick={() => setActiveTab('records')}
+            className={`pb-4 text-sm font-medium flex items-center gap-2 ${activeTab === 'records' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+              <Users size={18} /> Student Records & Marks
+          </button>
       </div>
 
-      {/* Main Editor Area */}
-      <div className="w-3/4 overflow-y-auto">
-        {student ? (
-          <div className="space-y-6 pb-8">
-            
-            {/* 1. ACADEMIC MARKS */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <Edit3 size={20} /> Update Marks (Sem {student.currentSemester})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {student.marks.map((subject) => (
-                    <div key={subject.code} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                      <div className="flex justify-between items-start mb-2">
-                         <label className="text-xs font-bold text-gray-600 uppercase">{subject.code}</label>
-                         <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 rounded">{subject.credits} Cr</span>
-                      </div>
-                      <div className="text-xs text-gray-500 mb-2 h-8 line-clamp-2" title={subject.name}>{subject.name}</div>
-                      <input
-                        type="number"
-                        value={subject.score}
-                        onChange={(e) => handleMarksChange(subject.code, e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-center font-mono focus:border-indigo-500 outline-none focus:ring-2 ring-indigo-100"
-                      />
-                    </div>
-                  ))}
-                </div>
-            </div>
-
-            {/* 2. DAILY ATTENDANCE */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><Calendar size={20} /> Daily Attendance Entry</h3>
-                <div className="flex gap-4 items-end bg-gray-50 p-4 rounded-lg">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
-                        <input type="date" className="border p-2 rounded" value={attDate} onChange={e => setAttDate(e.target.value)} />
-                    </div>
-                    <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Course Code</label>
-                        <select 
+      <div className="flex-1 overflow-hidden p-6">
+      
+      {/* VIEW 1: ATTENDANCE */}
+      {activeTab === 'attendance' && (
+          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col h-full">
+              <div className="p-6 border-b bg-gray-50">
+                  <h2 className="text-lg font-bold text-gray-800 mb-4">Attendance Register</h2>
+                  <div className="flex gap-4 items-end">
+                      <div className="flex-1">
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Select Your Subject</label>
+                          <select 
                             className="w-full border p-2 rounded" 
-                            value={attCourse} 
-                            onChange={e => setAttCourse(e.target.value)}
-                        >
-                            <option value="">Select Course...</option>
-                            {student.marks.map(s => (
-                                <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
-                            ))}
-                        </select>
+                            value={selectedClassSubject} 
+                            onChange={e => { setSelectedClassSubject(e.target.value); setAttendanceList([]); }}
+                          >
+                              <option value="">-- Select Allocated Subject --</option>
+                              {allocatedSubjects.map(sub => (
+                                  <option key={sub} value={sub}>{sub}</option>
+                              ))}
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Date</label>
+                          <input type="date" className="border p-2 rounded" value={attendanceDate} onChange={e => setAttendanceDate(e.target.value)} />
+                      </div>
+                      <button 
+                        onClick={loadClassList} 
+                        disabled={!selectedClassSubject}
+                        className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                          Load Student List
+                      </button>
+                  </div>
+                  {allocatedSubjects.length === 0 && (
+                      <p className="text-xs text-red-500 mt-2">You have no allocated subjects. Contact Admin I.</p>
+                  )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-0">
+                  {attendanceList.length > 0 ? (
+                      <table className="w-full text-left text-sm">
+                          <thead className="bg-gray-100 text-gray-600 sticky top-0">
+                              <tr>
+                                  <th className="p-4">Roll No</th>
+                                  <th className="p-4">Student Name</th>
+                                  <th className="p-4 text-center">Status</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                              {attendanceList.map(item => (
+                                  <tr key={item.id} className={item.status === 'Absent' ? 'bg-red-50' : ''}>
+                                      <td className="p-4 font-mono text-gray-600">{item.id}</td>
+                                      <td className="p-4 font-medium">{item.name}</td>
+                                      <td className="p-4 text-center">
+                                          <button 
+                                            onClick={() => toggleAttendanceStatus(item.id)}
+                                            className={`w-24 py-1 rounded-full text-xs font-bold transition-colors ${
+                                                item.status === 'Present' 
+                                                ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200' 
+                                                : 'bg-red-100 text-red-700 border border-red-200 hover:bg-red-200'
+                                            }`}
+                                          >
+                                              {item.status}
+                                          </button>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  ) : (
+                      <div className="h-full flex items-center justify-center text-gray-400 flex-col">
+                          <CheckSquare size={48} className="mb-2 opacity-20"/>
+                          <p>Select a subject and load the list to mark attendance.</p>
+                      </div>
+                  )}
+              </div>
+              
+              {attendanceList.length > 0 && (
+                  <div className="p-4 border-t bg-gray-50 flex justify-end">
+                      <button onClick={submitBulkAttendance} className="bg-green-600 text-white px-8 py-2 rounded hover:bg-green-700 shadow-lg font-medium">
+                          Submit Attendance
+                      </button>
+                  </div>
+              )}
+          </div>
+      )}
+
+      {/* VIEW 2: RECORDS */}
+      {activeTab === 'records' && (
+        <div className="flex h-full gap-6">
+            {/* Sidebar */}
+            <div className="w-1/4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                <div className="p-4 bg-gray-50 border-b space-y-3">
+                <div className="space-y-2">
+                    {staffDept && (
+                        <div className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 p-2 rounded text-center uppercase tracking-wide mb-2">
+                             Viewing: {staffDept} Department
+                        </div>
+                    )}
+                    <div className="relative">
+                        <Search size={14} className="absolute left-2 top-2.5 text-gray-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Search student..." 
+                            className="w-full pl-8 pr-2 py-2 text-sm border rounded-lg outline-none focus:border-indigo-500"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
                     </div>
+                </div>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                    {filteredStudents.length > 0 ? (
+                        filteredStudents.map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => setSelectedStudentId(s.id)}
+                                className={`w-full text-left p-4 border-b border-gray-50 hover:bg-indigo-50 transition-colors ${selectedStudentId === s.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
+                            >
+                                <div className="font-medium text-gray-900">{s.name}</div>
+                                <div className="text-xs text-gray-500 font-mono">{s.id}</div>
+                            </button>
+                        ))
+                    ) : (
+                        <div className="p-4 text-center text-gray-400 text-xs">No students found in {staffDept || 'system'}.</div>
+                    )}
+                </div>
+            </div>
+
+            {/* Editor */}
+            <div className="w-3/4 overflow-y-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                {student ? (
+                <div className="space-y-8">
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                        <select className="border p-2 rounded w-32" value={attStatus} onChange={(e) => setAttStatus(e.target.value as any)}>
-                            <option value="Present">Present</option>
-                            <option value="Absent">Absent</option>
-                        </select>
-                    </div>
-                    <button onClick={addAttendanceRecord} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Update</button>
-                </div>
-                <div className="mt-2 text-xs text-gray-500">
-                    Current Calculated Attendance: <span className="font-bold text-indigo-600">{student.attendancePercentage}%</span> (Based on {student.attendanceLog.length} entries)
-                </div>
-            </div>
-
-            {/* 3. BACKLOGS */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><AlertTriangle size={20} className="text-amber-500" /> Backlogs Management</h3>
-                 <div className="flex gap-2 mb-4">
-                     <select className="border p-2 rounded flex-1" value={backlogSubject} onChange={e => setBacklogSubject(e.target.value)}>
-                        <option value="">Select Subject to Add as Backlog...</option>
-                        {student.marks.map(s => (
-                            <option key={s.code} value={`${s.code} - ${s.name}`}>{s.code} - {s.name}</option>
-                        ))}
-                     </select>
-                     <button onClick={addBacklog} className="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600">Add Backlog</button>
-                 </div>
-                 <div className="flex flex-wrap gap-2">
-                     {student.backlogs.length > 0 ? student.backlogs.map(sub => (
-                         <span key={sub} className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                             {sub} <button onClick={() => removeBacklog(sub)} className="hover:text-red-900"><AlertTriangle size={12}/></button>
-                         </span>
-                     )) : <span className="text-gray-400 text-sm">No active backlogs.</span>}
-                 </div>
-            </div>
-
-            {/* 4. REPORT GENERATION */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FileText size={20} /> Structured Performance Report</h3>
-                    <button onClick={handleGenerateReport} disabled={isGenerating} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
-                        <Sparkles size={16} /> {isGenerating ? 'Generating AI Summary...' : 'Update AI Summary'}
-                    </button>
-                </div>
-                
-                {/* STRUCTURED REPORT TABLE VIEW */}
-                <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-100 text-gray-700 font-bold">
-                            <tr>
-                                <th className="p-3 border-r w-1/4">Category</th>
-                                <th className="p-3">Details / Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            <tr>
-                                <td className="p-3 font-medium bg-gray-50 border-r">Marks Summary</td>
-                                <td className="p-3">
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                        {student.marks.map(m => (
-                                            <div key={m.code} className="flex justify-between border-b border-dashed pb-1">
-                                                <span className="font-medium text-gray-600" title={m.name}>{m.code}</span>
-                                                <span className="font-bold">{m.score}</span>
-                                            </div>
-                                        ))}
+                        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <Edit3 size={20} /> Update Marks
+                        </h3>
+                        <div className="p-3 bg-yellow-50 text-yellow-800 text-xs rounded mb-4 border border-yellow-100">
+                            Note: You can only edit marks for subjects allocated to you.
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {student.marks.map((subject) => {
+                            const isAllocated = allocatedSubjects.includes(subject.code);
+                            return (
+                                <div key={subject.code} className={`p-3 rounded-lg border ${isAllocated ? 'bg-white border-indigo-200' : 'bg-gray-100 border-gray-200 opacity-70'}`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <label className="text-xs font-bold text-gray-600">{subject.code}</label>
+                                        {isAllocated && <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded">Your Subject</span>}
                                     </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="p-3 font-medium bg-gray-50 border-r">Attendance</td>
-                                <td className="p-3">
-                                    <span className={`font-bold ${student.attendancePercentage < 75 ? 'text-red-600' : 'text-green-600'}`}>
-                                        {student.attendancePercentage}% 
-                                    </span>
-                                    <span className="text-xs text-gray-500 ml-2">({student.attendanceLog.length} Sessions Recorded)</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="p-3 font-medium bg-gray-50 border-r">Active Backlogs</td>
-                                <td className="p-3 text-red-600 font-bold">
-                                    {student.backlogs.length > 0 ? student.backlogs.join(", ") : "None"}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="p-3 font-medium bg-gray-50 border-r">Staff Remarks (AI)</td>
-                                <td className="p-3 italic text-gray-600">
-                                    {student.performanceReport || "No remarks generated yet."}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                    <div className="text-xs text-gray-500 mb-2 h-8 line-clamp-2">{subject.name}</div>
+                                    <input
+                                        type="number"
+                                        disabled={!isAllocated}
+                                        value={subject.score}
+                                        onChange={(e) => handleMarksChange(subject.code, e.target.value)}
+                                        className={`w-full p-2 border rounded text-center font-mono outline-none ${isAllocated ? 'focus:ring-2 ring-indigo-200' : 'cursor-not-allowed bg-gray-200'}`}
+                                    />
+                                </div>
+                            );
+                        })}
+                        </div>
+                    </div>
 
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-gray-400 flex-col">
-            <BookOpen size={48} className="mb-2 opacity-20"/>
-            <p>Select a student to begin managing records.</p>
-          </div>
-        )}
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><AlertTriangle size={20} className="text-amber-500" /> Backlogs</h3>
+                        <div className="flex gap-2 mb-4">
+                            <select className="border p-2 rounded flex-1" value={backlogSubject} onChange={e => setBacklogSubject(e.target.value)}>
+                                <option value="">Select Subject...</option>
+                                {student.marks.map(s => (
+                                    <option key={s.code} value={`${s.code} - ${s.name}`}>{s.code} - {s.name}</option>
+                                ))}
+                            </select>
+                            <button onClick={addBacklog} className="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600">Add</button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {student.backlogs.map(sub => (
+                                <span key={sub} className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                                    {sub} <button onClick={() => removeBacklog(sub)} className="hover:text-red-900"><AlertTriangle size={12}/></button>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FileText size={20} /> AI Report</h3>
+                            <button onClick={handleGenerateReport} disabled={isGenerating} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
+                                <Sparkles size={16} /> {isGenerating ? 'Generating...' : 'Generate'}
+                            </button>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded border border-gray-200 italic text-gray-600">
+                            {student.performanceReport || "No report generated."}
+                        </div>
+                    </div>
+                </div>
+                ) : (
+                <div className="h-full flex items-center justify-center text-gray-400 flex-col">
+                    <BookOpen size={48} className="mb-2 opacity-20"/>
+                    <p>Select a student to view details.</p>
+                </div>
+                )}
+            </div>
+        </div>
+      )}
+
       </div>
     </div>
   );

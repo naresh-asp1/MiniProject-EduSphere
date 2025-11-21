@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Role, User, Student, ChangeRequest, Department, StaffProfile, INITIAL_STUDENTS, INITIAL_DEPARTMENTS, INITIAL_STAFF } from './types';
 import { Auth } from './components/Auth';
@@ -48,6 +49,11 @@ const App: React.FC = () => {
   const currentStudent = user?.role === Role.STUDENT 
       ? (students.find(s => s.email === user.username || s.id === user.id) || students[0]) 
       : students[0];
+
+  // Get Current Staff for Staff View
+  const currentStaff = user?.role === Role.STAFF
+      ? staffList.find(s => s.id === user.id)
+      : undefined;
 
   if (showLanding) {
     return (
@@ -157,6 +163,7 @@ const App: React.FC = () => {
             students={students} 
             setStudents={setStudents}
             departments={departments}
+            currentUser={currentStaff}
           />
         )}
         

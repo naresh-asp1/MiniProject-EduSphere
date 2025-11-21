@@ -53,7 +53,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   const [deptName, setDeptName] = useState('');
   
   // Staff State
-  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '' });
+  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '', allocatedSubjects: [] });
+  const [staffSubjectsInput, setStaffSubjectsInput] = useState('');
 
   // --- CSV IMPORT HANDLER ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,16 +152,29 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   // --- STAFF HANDLERS ---
   const handleStaffSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      const staffToSave = {
+          ...currentStaff,
+          allocatedSubjects: staffSubjectsInput.split(',').map(s => s.trim()).filter(s => s.length > 0)
+      };
+
       if (isEditing) {
-          setStaffList(prev => prev.map(s => s.id === currentStaff.id ? currentStaff : s));
+          setStaffList(prev => prev.map(s => s.id === currentStaff.id ? staffToSave : s));
       } else {
-          setStaffList(prev => [...prev, currentStaff]);
+          setStaffList(prev => [...prev, staffToSave]);
       }
       setShowForm(false);
   };
 
+  const initStaffEdit = (staff: StaffProfile) => {
+      setCurrentStaff(staff);
+      setStaffSubjectsInput(staff.allocatedSubjects.join(', '));
+      setIsEditing(true);
+      setShowForm(true);
+  };
+
   const initStaffAdd = () => {
-      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', department: departments[0]?.id || '' });
+      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', department: departments[0]?.id || '', allocatedSubjects: [] });
+      setStaffSubjectsInput('');
       setIsEditing(false);
       setShowForm(true);
   };
@@ -315,7 +329,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                             <th className="p-4">ID</th>
                             <th className="p-4">Name</th>
                             <th className="p-4">Email</th>
-                            <th className="p-4">Assigned Department</th>
+                            <th className="p-4">Dept</th>
+                            <th className="p-4">Allocated Subjects</th>
                             <th className="p-4">Actions</th>
                         </tr>
                     </thead>
@@ -327,6 +342,15 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                 <td className="p-4 text-gray-500">{s.email}</td>
                                 <td className="p-4"><span className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
                                 <td className="p-4">
+                                    <div className="flex flex-wrap gap-1">
+                                        {s.allocatedSubjects && s.allocatedSubjects.length > 0 
+                                            ? s.allocatedSubjects.map(sub => <span key={sub} className="bg-gray-100 px-2 py-0.5 rounded text-xs border border-gray-200">{sub}</span>)
+                                            : <span className="text-gray-400 italic text-xs">None</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td className="p-4 flex gap-2">
+                                    <button onClick={() => initStaffEdit(s)} className="text-blue-600 hover:underline">Edit</button>
                                     <button onClick={() => setStaffList(prev => prev.filter(st => st.id !== s.id))} className="text-red-600 hover:underline">Delete</button>
                                 </td>
                             </tr>
@@ -338,14 +362,29 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
             {showForm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white p-6 rounded-xl w-full max-w-lg">
-                        <h2 className="text-xl font-bold mb-4">Add Staff Member</h2>
+                        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Staff' : 'Add Staff'} Member</h2>
                         <form onSubmit={handleStaffSubmit} className="space-y-3">
                             <input placeholder="Name" required className="w-full border p-2 rounded" value={currentStaff.name} onChange={e => setCurrentStaff({...currentStaff, name: e.target.value})} />
                             <input placeholder="Email" type="email" required className="w-full border p-2 rounded" value={currentStaff.email} onChange={e => setCurrentStaff({...currentStaff, email: e.target.value})} />
-                            <label className="block text-xs font-bold text-gray-500 mt-2">Assign Department to Work</label>
-                            <select required className="w-full border p-2 rounded" value={currentStaff.department} onChange={e => setCurrentStaff({...currentStaff, department: e.target.value})}>
-                                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                            </select>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Assign Department</label>
+                                <select required className="w-full border p-2 rounded" value={currentStaff.department} onChange={e => setCurrentStaff({...currentStaff, department: e.target.value})}>
+                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Allocated Subjects (Course Codes)</label>
+                                <input 
+                                    placeholder="e.g. CS3301, MA3151 (comma separated)" 
+                                    className="w-full border p-2 rounded font-mono text-sm" 
+                                    value={staffSubjectsInput}
+                                    onChange={e => setStaffSubjectsInput(e.target.value)} 
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">Staff can only mark attendance for these specific subjects.</p>
+                            </div>
+
                             <div className="flex justify-end gap-2 mt-4">
                                 <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>

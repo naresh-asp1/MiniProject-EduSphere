@@ -43,6 +43,7 @@ export interface Student {
   dob: string;
   batch: number; // Join Year
   currentSemester: number; // 1-8
+  grade: string; // Year (e.g. I Year, II Year)
   section: string;
   department: string;
   contactNumber: string;
@@ -65,6 +66,7 @@ export interface StaffProfile {
   name: string;
   email: string;
   department: string;
+  allocatedSubjects: string[]; // Course Codes assigned to this staff
 }
 
 export interface ChangeRequest {
@@ -172,7 +174,7 @@ const DEPT_NAMES = [
 
 export const INITIAL_DEPARTMENTS: Department[] = DEPT_NAMES.map(d => ({ id: d[0], name: d[1] }));
 
-// South Indian Names (First names only as requested)
+// South Indian Names (First names only)
 const SI_NAMES = [
   "Aditya", "Arjun", "Sai", "Krishna", "Karthik", "Vijay", "Surya", "Ravi", 
   "Lakshmi", "Priya", "Divya", "Anjali", "Kavya", "Swathi", "Rahul", "Rohit", 
@@ -191,13 +193,29 @@ const generateStaff = (): StaffProfile[] => {
   const staff: StaffProfile[] = [];
   let counter = 1;
   INITIAL_DEPARTMENTS.forEach(dept => {
+    // Gather all subjects for this department
+    const deptSubjects: SubjectDef[] = [];
+    if (CURRICULUM[dept.id]) {
+      Object.values(CURRICULUM[dept.id]).forEach(semSubs => deptSubjects.push(...semSubs));
+    } else {
+      deptSubjects.push(...DEFAULT_SUBJECTS);
+    }
+
     for (let i = 1; i <= 5; i++) {
       const name = getRandomElement(SI_NAMES);
+      // Assign 2 random subjects from the dept curriculum to this staff
+      const subjects = new Set<string>();
+      if (deptSubjects.length > 0) {
+        subjects.add(deptSubjects[Math.floor(Math.random() * deptSubjects.length)].code);
+        subjects.add(deptSubjects[Math.floor(Math.random() * deptSubjects.length)].code);
+      }
+
       staff.push({
         id: `ST${String(counter).padStart(3, '0')}`,
-        name: `Prof. ${name}`, // Removed Last Name
+        name: `Prof. ${name}`,
         email: `${name.toLowerCase()}${counter}@edusphere.edu`,
-        department: dept.id
+        department: dept.id,
+        allocatedSubjects: Array.from(subjects)
       });
       counter++;
     }
@@ -211,18 +229,12 @@ const generateStudents = (): Student[] => {
   const students: Student[] = [];
   
   INITIAL_DEPARTMENTS.forEach(dept => {
-    // Generate students for 4 batches (Year 1 to 4)
-    const batches = [2024, 2023, 2022, 2021]; // Current Year assumed 2024-25
+    const batches = [2024, 2023, 2022, 2021]; 
     
     batches.forEach((batchYear, batchIndex) => {
-      // Year 1 -> Sem 1, Year 2 -> Sem 3, Year 3 -> Sem 5, Year 4 -> Sem 7
       const currentSem = (batchIndex * 2) + 1; 
-      
-      // Get subjects for this dept and semester
       const deptSubjects = CURRICULUM[dept.id]?.[currentSem] || DEFAULT_SUBJECTS.map(s => ({ ...s, code: `${dept.id}${currentSem}0${Math.floor(Math.random()*9)}` }));
 
-      // Generate 2-3 students per batch per dept for demo (Total 10 per dept)
-      // (Adjusted to meet requirement of "10 students per department" total ~ 2-3 per year)
       for (let i = 1; i <= 3; i++) {
         if (students.filter(s => s.department === dept.id).length >= 10) break;
 
@@ -230,18 +242,18 @@ const generateStudents = (): Student[] => {
         const isVerified = Math.random() > 0.1;
         const name = getRandomElement(SI_NAMES);
         const seqNo = String(i).padStart(3, '0');
-        const rollNo = `${batchYear}${dept.id}${seqNo}`; // e.g., 2021CSE001
+        const rollNo = `${batchYear}${dept.id}${seqNo}`;
 
         const studentMarks: SubjectMark[] = deptSubjects.map(sub => ({
           code: sub.code,
           name: sub.name,
           credits: sub.credits,
-          score: Math.floor(Math.random() * 50) + 50 // Random pass marks
+          score: Math.floor(Math.random() * 50) + 50 
         }));
 
         students.push({
           id: rollNo,
-          name: name, // Removed Last Name
+          name: name,
           email: `${name.toLowerCase()}.${rollNo}@edusphere.edu`,
           dob: `${batchYear - 18}-01-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
           batch: batchYear,
