@@ -26,6 +26,7 @@ export interface SubjectMark {
   name: string;
   score: number; // 0-100
   credits: number;
+  semester: number;
 }
 
 export interface AttendanceRecord {
@@ -48,6 +49,7 @@ export interface Student {
   department: string;
   contactNumber: string;
   address: string;
+  residenceType: 'Hosteller' | 'Day Scholar'; // New field
   verified: boolean;
   marks: SubjectMark[]; // Dynamic subjects based on Sem/Dept
   attendanceLog: AttendanceRecord[];
@@ -157,6 +159,21 @@ const DEFAULT_SUBJECTS = [
     { code: 'PRJ101', name: 'Mini Project', credits: 2 }
 ];
 
+// Helper to get subjects for any semester (handles missing map data)
+const getSubjectsForSem = (deptId: string, sem: number): SubjectDef[] => {
+  if (CURRICULUM[deptId] && CURRICULUM[deptId][sem]) {
+    return CURRICULUM[deptId][sem];
+  }
+  // Generate generic subjects for unmapped semesters to ensure data exists for all sems
+  return [
+    { code: `${deptId}${sem}01`, name: `Advanced Mathematics ${sem}`, credits: 4 },
+    { code: `${deptId}${sem}02`, name: `Core Departmental ${sem}-A`, credits: 3 },
+    { code: `${deptId}${sem}03`, name: `Core Departmental ${sem}-B`, credits: 3 },
+    { code: `${deptId}${sem}04`, name: `Elective Subject ${sem}`, credits: 3 },
+    { code: `${deptId}${sem}05`, name: `Practical Laboratory ${sem}`, credits: 2 },
+  ];
+};
+
 // --- INITIAL DATA GENERATION ---
 
 const DEPT_NAMES = [
@@ -193,12 +210,10 @@ const generateStaff = (): StaffProfile[] => {
   const staff: StaffProfile[] = [];
   let counter = 1;
   INITIAL_DEPARTMENTS.forEach(dept => {
-    // Gather all subjects for this department
+    // Gather all subjects for this department (from all semesters)
     const deptSubjects: SubjectDef[] = [];
-    if (CURRICULUM[dept.id]) {
-      Object.values(CURRICULUM[dept.id]).forEach(semSubs => deptSubjects.push(...semSubs));
-    } else {
-      deptSubjects.push(...DEFAULT_SUBJECTS);
+    for(let s = 1; s <= 8; s++) {
+        deptSubjects.push(...getSubjectsForSem(dept.id, s));
     }
 
     for (let i = 1; i <= 5; i++) {
@@ -227,29 +242,55 @@ export const INITIAL_STAFF: StaffProfile[] = generateStaff();
 
 const generateStudents = (): Student[] => {
   const students: Student[] = [];
-  
+  const localities = ["Anna Nagar", "T. Nagar", "Adyar", "Velachery", "Tambaram", "Mylapore", "Chromepet", "Guindy", "Gandhipuram", "RS Puram", "Peelamedu"];
+  const cities = ["Chennai", "Coimbatore", "Madurai", "Trichy", "Salem", "Tirunelveli", "Erode"];
+
   INITIAL_DEPARTMENTS.forEach(dept => {
     const batches = [2024, 2023, 2022, 2021]; 
     
     batches.forEach((batchYear, batchIndex) => {
-      const currentSem = (batchIndex * 2) + 1; 
-      const deptSubjects = CURRICULUM[dept.id]?.[currentSem] || DEFAULT_SUBJECTS.map(s => ({ ...s, code: `${dept.id}${currentSem}0${Math.floor(Math.random()*9)}` }));
-
+      const currentSem = (batchIndex * 2) + 1; // 1, 3, 5, 7
+      
+      // 3 students per batch per dept (Resulting in ~120 students total)
       for (let i = 1; i <= 3; i++) {
-        if (students.filter(s => s.department === dept.id).length >= 10) break;
+        if (students.filter(s => s.department === dept.id).length >= 12) break; // Cap at ~12 per dept
 
-        const hasBacklog = Math.random() > 0.8;
         const isVerified = Math.random() > 0.1;
+        const isHosteller = Math.random() > 0.6; 
         const name = getRandomElement(SI_NAMES);
         const seqNo = String(i).padStart(3, '0');
         const rollNo = `${batchYear}${dept.id}${seqNo}`;
 
-        const studentMarks: SubjectMark[] = deptSubjects.map(sub => ({
-          code: sub.code,
-          name: sub.name,
-          credits: sub.credits,
-          score: Math.floor(Math.random() * 50) + 50 
-        }));
+        let address = '';
+        if (isHosteller) {
+            address = `Hostel Block ${dept.id}, Room ${Math.floor(Math.random() * 200) + 100}, EduSphere Campus`;
+        } else {
+            address = `No. ${Math.floor(Math.random() * 100) + 1}, ${getRandomElement(localities)} Main Road, ${getRandomElement(cities)}`;
+        }
+
+        // GENERATE MARKS HISTORY (From Sem 1 up to Current Sem)
+        const allMarks: SubjectMark[] = [];
+        const backlogs: string[] = [];
+
+        for (let s = 1; s <= currentSem; s++) {
+            const semSubjects = getSubjectsForSem(dept.id, s);
+            const semMarks = semSubjects.map(sub => {
+                // Simple logic: older semesters likely passed, current semester might have random scores
+                const isBacklog = Math.random() > 0.95; // 5% chance of fail per subject
+                const score = isBacklog ? 40 : Math.floor(Math.random() * 40) + 60; 
+                
+                if (score < 50) backlogs.push(sub.code);
+
+                return {
+                    code: sub.code,
+                    name: sub.name,
+                    credits: sub.credits,
+                    score: score,
+                    semester: s
+                };
+            });
+            allMarks.push(...semMarks);
+        }
 
         students.push({
           id: rollNo,
@@ -262,12 +303,13 @@ const generateStudents = (): Student[] => {
           section: ['A', 'B'][Math.floor(Math.random() * 2)],
           department: dept.id,
           contactNumber: `9${Math.floor(Math.random() * 900000000 + 100000000)}`,
-          address: `Hostel Block ${dept.id}, Room ${i}, EduSphere Campus`,
+          address: address,
+          residenceType: isHosteller ? 'Hosteller' : 'Day Scholar',
           verified: isVerified,
-          marks: studentMarks,
+          marks: allMarks,
           attendanceLog: [],
           attendancePercentage: Math.floor(Math.random() * 30) + 70,
-          backlogs: hasBacklog ? [studentMarks[0].code] : [],
+          backlogs: backlogs,
           performanceReport: ''
         });
       }

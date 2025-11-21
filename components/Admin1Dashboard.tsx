@@ -24,6 +24,7 @@ const EMPTY_STUDENT: Student = {
   department: '',
   contactNumber: '',
   address: '',
+  residenceType: 'Day Scholar',
   verified: false,
   marks: [],
   attendanceLog: [],
@@ -85,6 +86,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                 grade: cols[3] || 'I Year',
                 section: cols[4] || 'A',
                 contactNumber: cols[5] || '',
+                residenceType: 'Day Scholar', // Default for import
                 verified: true,
                 marks: [], // Imported students start with empty marks
                 dob: '2005-01-01',
@@ -256,7 +258,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                 <th className="p-4">Name</th>
                                 <th className="p-4">Email</th>
                                 <th className="p-4">Department</th>
-                                <th className="p-4">Batch</th>
+                                <th className="p-4">Residence</th>
                                 <th className="p-4">Actions</th>
                             </tr>
                         </thead>
@@ -267,7 +269,11 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                     <td className="p-4 font-medium">{s.name}</td>
                                     <td className="p-4 text-gray-500">{s.email}</td>
                                     <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
-                                    <td className="p-4">{s.batch}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${s.residenceType === 'Hosteller' ? 'bg-indigo-50 text-indigo-700' : 'bg-green-50 text-green-700'}`}>
+                                            {s.residenceType}
+                                        </span>
+                                    </td>
                                     <td className="p-4">
                                         <button onClick={() => initStudentEdit(s)} className="text-blue-600 hover:underline mr-3">Edit</button>
                                         <button onClick={() => setStudents(prev => prev.filter(st => st.id !== s.id))} className="text-red-600 hover:underline">Delete</button>
@@ -303,8 +309,27 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                     <option value="">Select Dept</option>
                                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
-                                <input placeholder="Grade (e.g., I Year)" className="w-full border p-2 rounded" value={currentStudent.grade} onChange={e => setCurrentStudent({...currentStudent, grade: e.target.value})} />
+                                <select 
+                                    className="w-full border p-2 rounded" 
+                                    value={currentStudent.residenceType} 
+                                    onChange={e => setCurrentStudent({...currentStudent, residenceType: e.target.value as 'Hosteller' | 'Day Scholar'})}
+                                >
+                                    <option value="Day Scholar">Day Scholar</option>
+                                    <option value="Hosteller">Hosteller</option>
+                                </select>
                             </div>
+                            
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-500">Residential Address</label>
+                                <textarea 
+                                    required 
+                                    placeholder="Full Address" 
+                                    className="w-full border p-2 rounded h-20 text-sm" 
+                                    value={currentStudent.address} 
+                                    onChange={e => setCurrentStudent({...currentStudent, address: e.target.value})} 
+                                />
+                            </div>
+
                             <div className="flex justify-end gap-2 mt-4">
                                 <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>

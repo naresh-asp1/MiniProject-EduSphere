@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Student, ChangeRequest } from '../types';
-import { Send, History, FileText, AlertTriangle } from 'lucide-react';
+import { Send, History, FileText, AlertTriangle, User, Mail, Phone, MapPin, Calendar, GraduationCap, BookOpen, ChevronRight, TrendingUp, Award, Home } from 'lucide-react';
 
 interface StudentProps {
   student: Student;
@@ -10,6 +10,7 @@ interface StudentProps {
 }
 
 export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, setRequests }) => {
+  const [selectedSemester, setSelectedSemester] = useState(student.currentSemester);
   const [requestField, setRequestField] = useState('');
   const [newValue, setNewValue] = useState('');
   const [reason, setReason] = useState('');
@@ -27,7 +28,7 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
       oldValue: 'N/A',
       newValue,
       reason,
-      status: 'pending_admin2' // Goes to Admin 2 first
+      status: 'pending_admin2'
     };
     setRequests(prev => [...prev, newRequest]);
     setShowModal(false);
@@ -37,142 +38,253 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
     alert("Request sent to Admin II for verification.");
   };
 
+  // Filter marks by semester
+  const semesterMarks = student.marks.filter(m => m.semester === selectedSemester);
+  
+  // Calculate CGPA for this semester (Simple Average for demo)
+  const semAverage = semesterMarks.length > 0 
+    ? (semesterMarks.reduce((acc, m) => acc + m.score, 0) / semesterMarks.length).toFixed(1)
+    : "N/A";
+
+  // Generate array of available semesters [1, ... , currentSemester]
+  const availableSemesters = Array.from({ length: student.currentSemester }, (_, i) => i + 1);
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">My Portal</h1>
-          <p className="text-gray-500 font-mono">
-            {student.name} | {student.id} <br/> 
-            {student.department} - {student.grade} (Sem {student.currentSemester})
-          </p>
-        </div>
-        <button onClick={() => setShowModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2 shadow-md">
-          <Send size={16} /> Raise Request
-        </button>
-      </div>
-
-      {/* STRUCTURED REPORT CARD */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
-          <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
-              <h2 className="text-lg font-bold flex items-center gap-2"><FileText size={20} /> Consolidated Performance Report</h2>
-              <span className="text-xs bg-indigo-500 px-2 py-1 rounded">EduSphere Official Record</span>
-          </div>
+    <div className="max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* LEFT PANEL: PERSONAL DETAILS */}
+        <div className="lg:col-span-1 space-y-6">
           
-          <div className="p-6">
-              <table className="w-full border-collapse border border-gray-200 text-sm">
-                  <tbody>
-                      <tr className="border-b">
-                          <td className="p-3 w-1/3 bg-gray-50 font-bold text-gray-700 border-r align-top">Marks Obtained</td>
-                          <td className="p-3">
-                              <table className="w-full text-left text-xs">
-                                  <thead>
-                                      <tr className="text-gray-500 border-b">
-                                          <th className="pb-1">Code</th>
-                                          <th className="pb-1">Subject</th>
-                                          <th className="pb-1 text-right">Credits</th>
-                                          <th className="pb-1 text-right">Score</th>
-                                      </tr>
-                                  </thead>
-                                  <tbody>
-                                      {student.marks.map((m) => (
-                                          <tr key={m.code} className="border-b last:border-0 border-gray-100">
-                                              <td className="py-2 font-mono text-gray-600">{m.code}</td>
-                                              <td className="py-2 font-medium">{m.name}</td>
-                                              <td className="py-2 text-right text-gray-400">{m.credits}</td>
-                                              <td className={`py-2 text-right font-bold ${m.score < 50 ? 'text-red-600' : 'text-gray-800'}`}>
-                                                  {m.score}
-                                              </td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                              </table>
-                          </td>
-                      </tr>
-                      <tr className="border-b">
-                          <td className="p-3 bg-gray-50 font-bold text-gray-700 border-r">Attendance Summary</td>
-                          <td className="p-3">
-                               <div className="flex items-center gap-4">
-                                   <div className="text-2xl font-bold text-indigo-600">{student.attendancePercentage}%</div>
-                                   <div className="text-xs text-gray-500">
-                                       Total Sessions: {student.attendanceLog.length}<br/>
-                                       Present: {student.attendanceLog.filter(l => l.status === 'Present').length}
-                                   </div>
-                               </div>
-                          </td>
-                      </tr>
-                      <tr className="border-b">
-                          <td className="p-3 bg-gray-50 font-bold text-gray-700 border-r">Backlogs / Arrears</td>
-                          <td className="p-3">
-                              {student.backlogs.length > 0 ? (
-                                  <div className="flex gap-2 text-red-600 font-bold items-center flex-wrap">
-                                      <AlertTriangle size={16} />
-                                      {student.backlogs.join(", ")}
-                                  </div>
-                              ) : (
-                                  <span className="text-green-600 font-medium">Nil (All Clear)</span>
-                              )}
-                          </td>
-                      </tr>
-                      <tr>
-                          <td className="p-3 bg-gray-50 font-bold text-gray-700 border-r">Performance Highlights</td>
-                          <td className="p-3 italic text-gray-600 leading-relaxed">
-                              "{student.performanceReport || 'Evaluation pending...'}"
-                          </td>
-                      </tr>
-                  </tbody>
-              </table>
+          {/* ID Card Style Profile */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden relative">
+            <div className="h-24 bg-gradient-to-r from-indigo-600 to-purple-600"></div>
+            <div className="px-6 pb-6 text-center relative">
+               <div className="w-24 h-24 mx-auto bg-white p-1 rounded-full -mt-12 shadow-md">
+                  <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center text-gray-400">
+                      <User size={40} />
+                  </div>
+               </div>
+               <h2 className="text-xl font-bold text-gray-800 mt-3">{student.name}</h2>
+               <p className="text-sm text-gray-500 font-mono">{student.id}</p>
+               <div className="mt-3 flex flex-wrap justify-center gap-2">
+                 <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold">{student.department}</span>
+                 <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold">{student.grade}</span>
+               </div>
+            </div>
           </div>
-      </div>
 
-      {/* REQUEST HISTORY */}
-      <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50">
-            <History size={18} className="text-gray-500" />
-            <h3 className="font-semibold text-gray-700">Request Status History</h3>
+          {/* Personal Info Details */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Personal Details</h3>
+              <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                      <Mail className="text-gray-400 mt-0.5" size={18} />
+                      <div>
+                          <p className="text-xs text-gray-500">Email Address</p>
+                          <p className="text-sm font-medium text-gray-800 break-all">{student.email}</p>
+                      </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                      <Phone className="text-gray-400 mt-0.5" size={18} />
+                      <div>
+                          <p className="text-xs text-gray-500">Contact Number</p>
+                          <p className="text-sm font-medium text-gray-800">{student.contactNumber}</p>
+                      </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                      <Calendar className="text-gray-400 mt-0.5" size={18} />
+                      <div>
+                          <p className="text-xs text-gray-500">Date of Birth</p>
+                          <p className="text-sm font-medium text-gray-800">{student.dob}</p>
+                      </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                      <Home className="text-gray-400 mt-0.5" size={18} />
+                      <div>
+                          <p className="text-xs text-gray-500">Residence Type</p>
+                          <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${student.residenceType === 'Hosteller' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'}`}>
+                              {student.residenceType}
+                          </span>
+                      </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                      <MapPin className="text-gray-400 mt-0.5" size={18} />
+                      <div>
+                          <p className="text-xs text-gray-500">Address</p>
+                          <p className="text-sm font-medium text-gray-800 leading-tight">{student.address}</p>
+                      </div>
+                  </div>
+              </div>
+              
+              <div className="mt-6 pt-6 border-t">
+                  <button onClick={() => setShowModal(true)} className="w-full bg-white border border-indigo-200 text-indigo-700 py-2 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
+                      <Send size={16} /> Request Data Update
+                  </button>
+              </div>
+          </div>
+
+          {/* Request History Widget */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-3">
+                  <History size={16} /> Request History
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-2">
+                  {myRequests.length > 0 ? myRequests.map(r => (
+                      <div key={r.id} className="text-xs p-2 bg-gray-50 rounded border border-gray-100">
+                          <div className="flex justify-between mb-1">
+                              <span className="font-semibold">{r.field}</span>
+                              <span className={`px-1.5 rounded text-[10px] ${
+                                  r.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                                  r.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+                                  'bg-yellow-100 text-yellow-800'
+                              }`}>{r.status}</span>
+                          </div>
+                          <div className="text-gray-500 truncate">{r.newValue}</div>
+                      </div>
+                  )) : (
+                      <div className="text-xs text-gray-400 text-center py-2">No requests made.</div>
+                  )}
+              </div>
+          </div>
         </div>
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="text-gray-500 border-b">
-              <th className="p-4">Field</th>
-              <th className="p-4">New Value</th>
-              <th className="p-4">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {myRequests.length > 0 ? myRequests.map(r => (
-              <tr key={r.id} className="border-b last:border-0">
-                <td className="p-4">{r.field}</td>
-                <td className="p-4">{r.newValue}</td>
-                <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        r.status === 'approved' ? 'bg-green-100 text-green-800' : 
-                        r.status === 'rejected' ? 'bg-red-100 text-red-800' : 
-                        'bg-yellow-100 text-yellow-800'
-                    }`}>
-                        {r.status === 'pending_admin2' ? 'Processing (L1)' : 
-                         r.status === 'pending_admin1' ? 'Verified (L2)' : 
-                         r.status}
-                    </span>
-                </td>
-              </tr>
-            )) : (
-                <tr><td colSpan={3} className="p-6 text-center text-gray-400">No requests raised yet.</td></tr>
-            )}
-          </tbody>
-        </table>
+
+        {/* RIGHT PANEL: ACADEMIC PERFORMANCE */}
+        <div className="lg:col-span-2 space-y-6">
+            
+            {/* Header & Sem Selector */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                            <GraduationCap className="text-indigo-600" /> Academic Performance
+                        </h1>
+                        <p className="text-gray-500 text-sm">View your marks, attendance, and grades semester-wise.</p>
+                    </div>
+                    <div className="flex items-center bg-gray-100 p-1 rounded-lg">
+                        <span className="text-xs font-bold text-gray-500 px-3 uppercase">Semester:</span>
+                        <select 
+                            value={selectedSemester} 
+                            onChange={(e) => setSelectedSemester(Number(e.target.value))}
+                            className="bg-white text-sm font-medium text-gray-800 py-1 pl-3 pr-8 rounded shadow-sm border-0 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                        >
+                            {availableSemesters.map(sem => (
+                                <option key={sem} value={sem}>Sem {sem}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* Marks Table */}
+                <div className="border rounded-lg overflow-hidden mb-6">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50 text-gray-600 border-b">
+                            <tr>
+                                <th className="p-4">Course Code</th>
+                                <th className="p-4">Subject Name</th>
+                                <th className="p-4 text-center">Credits</th>
+                                <th className="p-4 text-center">Score</th>
+                                <th className="p-4 text-center">Result</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {semesterMarks.length > 0 ? semesterMarks.map(m => (
+                                <tr key={m.code} className="hover:bg-gray-50/50">
+                                    <td className="p-4 font-mono text-gray-600">{m.code}</td>
+                                    <td className="p-4 font-medium text-gray-800">{m.name}</td>
+                                    <td className="p-4 text-center text-gray-500">{m.credits}</td>
+                                    <td className="p-4 text-center font-bold">{m.score}</td>
+                                    <td className="p-4 text-center">
+                                        {m.score >= 50 
+                                            ? <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">PASS</span>
+                                            : <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-bold">FAIL</span>
+                                        }
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan={5} className="p-12 text-center text-gray-400 flex flex-col items-center">
+                                        <BookOpen size={32} className="mb-2 opacity-20"/>
+                                        No marks records found for Semester {selectedSemester}.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        {semesterMarks.length > 0 && (
+                            <tfoot className="bg-gray-50 font-bold text-gray-700">
+                                <tr>
+                                    <td colSpan={3} className="p-4 text-right">Semester Average:</td>
+                                    <td className="p-4 text-center text-indigo-600">{semAverage}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        )}
+                    </table>
+                </div>
+
+                {/* Performance Summary & Backlogs for Selected Sem */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-orange-50 rounded-xl p-5 border border-orange-100">
+                        <h3 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
+                            <AlertTriangle size={18} /> Backlogs (Arrears)
+                        </h3>
+                        {student.backlogs.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {student.backlogs.map(b => (
+                                    <span key={b} className="bg-white text-red-600 px-3 py-1 rounded border border-orange-200 text-xs font-mono font-bold shadow-sm">
+                                        {b}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-orange-700 mt-1">No backlogs. All clear!</p>
+                        )}
+                    </div>
+
+                    <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                         <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
+                            <TrendingUp size={18} /> Attendance Overview
+                        </h3>
+                        <div className="flex items-end gap-4">
+                            <span className="text-4xl font-bold text-blue-600">{student.attendancePercentage}%</span>
+                            <span className="text-sm text-blue-700 mb-1">Overall Attendance</span>
+                        </div>
+                        <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+                            <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${student.attendancePercentage}%` }}></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* AI Performance Report */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <FileText size={100} />
+                </div>
+                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <Award className="text-purple-600" /> Performance Evaluation Report
+                </h3>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 text-gray-700 italic leading-relaxed text-sm">
+                    "{student.performanceReport || 'Your annual performance report is currently being generated. Please check back later or contact your class advisor.'}"
+                </div>
+            </div>
+
+        </div>
       </div>
 
-      {/* MODAL */}
+      {/* MODAL FOR REQUEST */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl transform transition-all">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Request Data Change</h2>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-800">Request Profile Update</h2>
+                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
             <form onSubmit={handleRequestSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Field</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Which field needs correction?</label>
                     <select required className="w-full border p-2 rounded focus:ring-2 ring-indigo-500 outline-none" value={requestField} onChange={e => setRequestField(e.target.value)}>
-                        <option value="">Select...</option>
+                        <option value="">Select Field...</option>
                         <option value="Name">Name</option>
                         <option value="Contact">Contact Number</option>
                         <option value="Address">Address</option>
@@ -180,16 +292,16 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
                     </select>
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">New Value</label>
-                    <input required type="text" className="w-full border p-2 rounded focus:ring-2 ring-indigo-500 outline-none" value={newValue} onChange={e => setNewValue(e.target.value)} />
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Correct Value</label>
+                    <input required type="text" placeholder="Enter the correct information" className="w-full border p-2 rounded focus:ring-2 ring-indigo-500 outline-none" value={newValue} onChange={e => setNewValue(e.target.value)} />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Reason</label>
-                    <textarea required className="w-full border p-2 rounded focus:ring-2 ring-indigo-500 outline-none" rows={3} value={reason} onChange={e => setReason(e.target.value)}></textarea>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Reason for Change</label>
+                    <textarea required placeholder="Why are you requesting this change?" className="w-full border p-2 rounded focus:ring-2 ring-indigo-500 outline-none resize-none" rows={3} value={reason} onChange={e => setReason(e.target.value)}></textarea>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                     <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow">Submit</button>
+                    <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow font-medium">Submit Request</button>
                 </div>
             </form>
           </div>
