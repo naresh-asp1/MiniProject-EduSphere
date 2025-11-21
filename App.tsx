@@ -50,8 +50,8 @@ const App: React.FC = () => {
       ? (students.find(s => s.email === user.username || s.id === user.id) || students[0]) 
       : students[0];
 
-  // Get Current Staff for Staff View
-  const currentStaff = user?.role === Role.STAFF
+  // Get Current Staff for Staff View (Also handles HOD logic)
+  const currentStaff = (user?.role === Role.STAFF || user?.role === Role.HOD)
       ? staffList.find(s => s.id === user.id)
       : undefined;
 
@@ -111,7 +111,10 @@ const App: React.FC = () => {
               </div>
               <span className="text-xl font-bold text-gray-900 tracking-tight">EduSphere</span>
               <span className="ml-4 px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium uppercase tracking-wide border border-gray-200">
-                {user.role === Role.ADMIN1 ? 'Admin I' : user.role === Role.ADMIN2 ? 'Admin II' : user.role} Portal
+                {user.role === Role.ADMIN1 ? 'Admin I' : 
+                 user.role === Role.ADMIN2 ? 'Admin II' : 
+                 user.role === Role.HOD ? 'HOD Portal' :
+                 user.role === Role.STAFF ? 'Staff Portal' : 'Student Portal'}
               </span>
             </div>
             <div className="flex items-center space-x-4">
@@ -119,7 +122,7 @@ const App: React.FC = () => {
                 <UserCircle className="mr-2 text-gray-400" size={20} />
                 <div className="flex flex-col items-end leading-tight">
                     <span className="text-sm font-medium">{user.name}</span>
-                    {user.department && <span className="text-xs text-gray-400">{user.department}</span>}
+                    {user.department && <span className="text-xs text-gray-400">{user.department} {user.isHod ? '(Head)' : ''}</span>}
                 </div>
               </div>
               <button 
@@ -158,7 +161,7 @@ const App: React.FC = () => {
           />
         )}
         
-        {user.role === Role.STAFF && (
+        {(user.role === Role.STAFF || user.role === Role.HOD) && (
           <StaffDashboard 
             students={students} 
             setStudents={setStudents}
@@ -171,7 +174,8 @@ const App: React.FC = () => {
           <StudentDashboard 
             student={currentStudent} 
             requests={requests} 
-            setRequests={setRequests} 
+            setRequests={setRequests}
+            staffList={staffList}
           />
         )}
       </main>

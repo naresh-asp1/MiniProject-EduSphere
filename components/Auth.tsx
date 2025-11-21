@@ -39,9 +39,19 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
           setError('Invalid Admin II credentials.');
         }
       } else if (role === Role.STAFF) {
+        // Handles both Regular Staff and HOD
         const staff = staffList.find(s => s.email === username);
         if (staff && password === DEFAULT_CREDS.STAFF_PASS) {
-          onLogin({ id: staff.id, username, name: staff.name, role, department: staff.department });
+          // Auto-detect role based on isHod flag
+          const finalRole = staff.isHod ? Role.HOD : Role.STAFF;
+          onLogin({ 
+              id: staff.id, 
+              username, 
+              name: staff.name, 
+              role: finalRole, 
+              department: staff.department, 
+              isHod: staff.isHod 
+          });
         } else {
           setError('Invalid Staff email or password.');
         }
@@ -54,8 +64,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
         }
       }
     } else {
-      // Registration Simulation (For demo purposes, allows creation of Student/Staff)
-      // In a real app, this would be locked down or require approval.
+      // Registration Simulation
       const newUser: User = {
         id: Math.random().toString(36).substr(2, 9),
         username,
@@ -101,9 +110,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
              <div>
                <strong>Default Credentials (Demo):</strong><br/>
                Admin I: {DEFAULT_CREDS.ADMIN1.user} / {DEFAULT_CREDS.ADMIN1.pass}<br/>
-               Admin II: {DEFAULT_CREDS.ADMIN2.user} / {DEFAULT_CREDS.ADMIN2.pass}<br/>
-               Staff: [Email] / {DEFAULT_CREDS.STAFF_PASS}<br/>
-               Student: [Email] / {DEFAULT_CREDS.STUDENT_PASS}
+               Staff/HOD: [Email] / {DEFAULT_CREDS.STAFF_PASS}<br/>
              </div>
           </div>
 
@@ -157,18 +164,18 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Role</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { r: Role.ADMIN1, label: 'Admin I', icon: <Shield size={16} /> },
-                  { r: Role.ADMIN2, label: 'Admin II', icon: <UserCheck size={16} /> },
-                  { r: Role.STAFF, label: 'Staff', icon: <BookOpen size={16} /> },
-                  { r: Role.STUDENT, label: 'Student', icon: <GraduationCap size={16} /> }
+                  { r: Role.ADMIN1, label: 'Admin I', icon: <Shield size={14} /> },
+                  { r: Role.ADMIN2, label: 'Admin II', icon: <UserCheck size={14} /> },
+                  { r: Role.STAFF, label: 'Staff / HOD', icon: <BookOpen size={14} /> },
+                  { r: Role.STUDENT, label: 'Student', icon: <GraduationCap size={14} /> }
                 ].map((item) => (
                   <button
                     key={item.r}
                     type="button"
                     onClick={() => { setRole(item.r); setError(''); }}
-                    className={`flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg border ${
+                    className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium rounded-lg border transition-colors ${
                       role === item.r 
-                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700' 
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' 
                         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
@@ -203,7 +210,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
                   onClick={() => setActiveListTab('staff')}
                   className={`flex-1 py-3 font-medium text-sm ${activeListTab === 'staff' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
-                    Staff List (Password: {DEFAULT_CREDS.STAFF_PASS})
+                    Staff & HOD List (Password: {DEFAULT_CREDS.STAFF_PASS})
                 </button>
                 <button 
                   onClick={() => setActiveListTab('students')}
@@ -220,15 +227,19 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
                             <th className="p-4">Name</th>
                             <th className="p-4">Email (Username)</th>
                             <th className="p-4">Department</th>
+                            {activeListTab === 'staff' && <th className="p-4">Role</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y">
                         {activeListTab === 'staff' ? (
                             staffList.map(s => (
-                                <tr key={s.id} className="hover:bg-gray-50">
+                                <tr key={s.id} className={s.isHod ? "bg-indigo-50 hover:bg-indigo-100" : "hover:bg-gray-50"}>
                                     <td className="p-4">{s.name}</td>
                                     <td className="p-4 font-mono text-indigo-600 select-all">{s.email}</td>
                                     <td className="p-4">{s.department}</td>
+                                    <td className="p-4">
+                                        {s.isHod ? <span className="bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded text-xs font-bold">HOD</span> : 'Staff'}
+                                    </td>
                                 </tr>
                             ))
                         ) : (

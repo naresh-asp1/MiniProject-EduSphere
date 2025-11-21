@@ -3,7 +3,8 @@ export enum Role {
   ADMIN1 = 'admin1',
   ADMIN2 = 'admin2',
   STAFF = 'staff',
-  STUDENT = 'student'
+  STUDENT = 'student',
+  HOD = 'hod'
 }
 
 export const DEFAULT_CREDS = {
@@ -19,6 +20,7 @@ export interface User {
   name: string;
   role: Role;
   department?: string;
+  isHod?: boolean; // Helper to carry HOD status in session
 }
 
 export interface SubjectMark {
@@ -49,7 +51,8 @@ export interface Student {
   department: string;
   contactNumber: string;
   address: string;
-  residenceType: 'Hosteller' | 'Day Scholar'; // New field
+  residenceType: 'Hosteller' | 'Day Scholar'; 
+  tutorId?: string; // ID of the Staff Mentor
   verified: boolean;
   marks: SubjectMark[]; // Dynamic subjects based on Sem/Dept
   attendanceLog: AttendanceRecord[];
@@ -69,6 +72,7 @@ export interface StaffProfile {
   email: string;
   department: string;
   allocatedSubjects: string[]; // Course Codes assigned to this staff
+  isHod: boolean; // Distinction for HOD
 }
 
 export interface ChangeRequest {
@@ -209,6 +213,7 @@ const getRandomElement = (arr: string[]) => arr[Math.floor(Math.random() * arr.l
 const generateStaff = (): StaffProfile[] => {
   const staff: StaffProfile[] = [];
   let counter = 1;
+  
   INITIAL_DEPARTMENTS.forEach(dept => {
     // Gather all subjects for this department (from all semesters)
     const deptSubjects: SubjectDef[] = [];
@@ -218,6 +223,11 @@ const generateStaff = (): StaffProfile[] => {
 
     for (let i = 1; i <= 5; i++) {
       const name = getRandomElement(SI_NAMES);
+      const isHod = i === 1; // First staff generated is HOD
+      const id = isHod 
+        ? `HOD-${dept.id}` // Special Code for HOD
+        : `ST${String(counter).padStart(3, '0')}`;
+
       // Assign 2 random subjects from the dept curriculum to this staff
       const subjects = new Set<string>();
       if (deptSubjects.length > 0) {
@@ -226,11 +236,12 @@ const generateStaff = (): StaffProfile[] => {
       }
 
       staff.push({
-        id: `ST${String(counter).padStart(3, '0')}`,
-        name: `Prof. ${name}`,
+        id: id,
+        name: isHod ? `Dr. ${name} (HOD)` : `Prof. ${name}`,
         email: `${name.toLowerCase()}${counter}@edusphere.edu`,
         department: dept.id,
-        allocatedSubjects: Array.from(subjects)
+        allocatedSubjects: Array.from(subjects),
+        isHod: isHod
       });
       counter++;
     }
@@ -247,19 +258,24 @@ const generateStudents = (): Student[] => {
 
   INITIAL_DEPARTMENTS.forEach(dept => {
     const batches = [2024, 2023, 2022, 2021]; 
-    
+    // Find available staff (excluding HODs generally for tutorship, but including is fine)
+    const deptStaff = INITIAL_STAFF.filter(s => s.department === dept.id);
+
     batches.forEach((batchYear, batchIndex) => {
       const currentSem = (batchIndex * 2) + 1; // 1, 3, 5, 7
       
       // 3 students per batch per dept (Resulting in ~120 students total)
       for (let i = 1; i <= 3; i++) {
-        if (students.filter(s => s.department === dept.id).length >= 12) break; // Cap at ~12 per dept
+        if (students.filter(s => s.department === dept.id).length >= 12) break; 
 
         const isVerified = Math.random() > 0.1;
         const isHosteller = Math.random() > 0.6; 
         const name = getRandomElement(SI_NAMES);
         const seqNo = String(i).padStart(3, '0');
         const rollNo = `${batchYear}${dept.id}${seqNo}`;
+
+        // Assign a tutor randomly from the department staff
+        const tutor = deptStaff.length > 0 ? deptStaff[Math.floor(Math.random() * deptStaff.length)] : null;
 
         let address = '';
         if (isHosteller) {
@@ -275,7 +291,6 @@ const generateStudents = (): Student[] => {
         for (let s = 1; s <= currentSem; s++) {
             const semSubjects = getSubjectsForSem(dept.id, s);
             const semMarks = semSubjects.map(sub => {
-                // Simple logic: older semesters likely passed, current semester might have random scores
                 const isBacklog = Math.random() > 0.95; // 5% chance of fail per subject
                 const score = isBacklog ? 40 : Math.floor(Math.random() * 40) + 60; 
                 
@@ -305,6 +320,7 @@ const generateStudents = (): Student[] => {
           contactNumber: `9${Math.floor(Math.random() * 900000000 + 100000000)}`,
           address: address,
           residenceType: isHosteller ? 'Hosteller' : 'Day Scholar',
+          tutorId: tutor ? tutor.id : undefined,
           verified: isVerified,
           marks: allMarks,
           attendanceLog: [],

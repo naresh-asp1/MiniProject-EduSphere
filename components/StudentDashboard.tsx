@@ -1,15 +1,16 @@
 
 import React, { useState } from 'react';
-import { Student, ChangeRequest } from '../types';
-import { Send, History, FileText, AlertTriangle, User, Mail, Phone, MapPin, Calendar, GraduationCap, BookOpen, ChevronRight, TrendingUp, Award, Home } from 'lucide-react';
+import { Student, ChangeRequest, StaffProfile } from '../types';
+import { Send, History, FileText, AlertTriangle, User, Mail, Phone, MapPin, Calendar, GraduationCap, BookOpen, ChevronRight, TrendingUp, Award, Home, UserCheck } from 'lucide-react';
 
 interface StudentProps {
   student: Student;
   requests: ChangeRequest[];
   setRequests: React.Dispatch<React.SetStateAction<ChangeRequest[]>>;
+  staffList: StaffProfile[];
 }
 
-export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, setRequests }) => {
+export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, setRequests, staffList }) => {
   const [selectedSemester, setSelectedSemester] = useState(student.currentSemester);
   const [requestField, setRequestField] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -17,6 +18,7 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
   const [showModal, setShowModal] = useState(false);
 
   const myRequests = requests.filter(r => r.studentId === student.id);
+  const myTutor = staffList.find(s => s.id === student.tutorId);
 
   const handleRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +118,19 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
                       </div>
                   </div>
               </div>
+
+               {/* MENTOR DETAILS */}
+               {myTutor && (
+                  <div className="mt-6 pt-6 border-t">
+                      <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
+                          <UserCheck size={14}/> Assigned Tutor
+                      </h4>
+                      <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                          <p className="font-bold text-indigo-900 text-sm">{myTutor.name}</p>
+                          <p className="text-xs text-indigo-700 break-all">{myTutor.email}</p>
+                      </div>
+                  </div>
+               )}
               
               <div className="mt-6 pt-6 border-t">
                   <button onClick={() => setShowModal(true)} className="w-full bg-white border border-indigo-200 text-indigo-700 py-2 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">

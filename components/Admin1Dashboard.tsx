@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Student, Department, StaffProfile, ChangeRequest, DEFAULT_CREDS } from '../types';
-import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key, UserPlus, Briefcase } from 'lucide-react';
 
 interface Admin1Props {
   students: Student[];
@@ -32,7 +32,8 @@ const EMPTY_STUDENT: Student = {
   backlogs: [],
   performanceReport: '',
   batch: new Date().getFullYear(),
-  currentSemester: 1
+  currentSemester: 1,
+  tutorId: ''
 };
 
 export const Admin1Dashboard: React.FC<Admin1Props> = ({ 
@@ -54,7 +55,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   const [deptName, setDeptName] = useState('');
   
   // Staff State
-  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '', allocatedSubjects: [] });
+  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '', allocatedSubjects: [], isHod: false });
   const [staffSubjectsInput, setStaffSubjectsInput] = useState('');
 
   // --- CSV IMPORT HANDLER ---
@@ -70,7 +71,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
         const rows = text.split('\n');
         const dataRows = rows.slice(1).filter(r => r.trim().length > 0);
         
-        const newStudents: Student[] = dataRows.map((row, index) => {
+        const newStudents: Student[] = dataRows.map((row, index): Student | null => {
             const cols = row.split(',').map(c => c.trim());
             if (cols.length < 3) return null;
 
@@ -86,13 +87,14 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                 grade: cols[3] || 'I Year',
                 section: cols[4] || 'A',
                 contactNumber: cols[5] || '',
-                residenceType: 'Day Scholar', // Default for import
+                residenceType: 'Day Scholar',
                 verified: true,
-                marks: [], // Imported students start with empty marks
+                marks: [], 
                 dob: '2005-01-01',
                 address: 'Imported via Bulk Upload',
                 batch: batch,
-                currentSemester: 1
+                currentSemester: 1,
+                tutorId: ''
             };
         }).filter((s): s is Student => s !== null);
 
@@ -113,6 +115,46 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
 
   const triggerFileUpload = () => {
       fileInputRef.current?.click();
+  };
+
+  // --- AUTO ASSIGN TUTORS (ROUND ROBIN) ---
+  const handleAutoAssignTutors = () => {
+      const unassigned = students.filter(s => !s.tutorId);
+      if (unassigned.length === 0) { 
+          alert("No unassigned students found. Everyone has a tutor!"); 
+          return; 
+      }
+
+      // Group unassigned students by department
+      const byDept: Record<string, Student[]> = {};
+      unassigned.forEach(s => {
+          if(!byDept[s.department]) byDept[s.department] = [];
+          byDept[s.department].push(s);
+      });
+
+      let updatedCount = 0;
+      const newStudents = [...students];
+
+      Object.keys(byDept).forEach(dept => {
+          const deptStaff = staffList.filter(st => st.department === dept && !st.isHod); // Prefer non-HOD for tutorship? Let's allow all, but filter usually helps load balancing.
+          const targetStaff = deptStaff.length > 0 ? deptStaff : staffList.filter(st => st.department === dept); // Fallback to include HOD if only HOD exists
+          
+          if(targetStaff.length === 0) return; 
+
+          const deptStudents = byDept[dept];
+          deptStudents.forEach((s, idx) => {
+              // Round robin distribution
+              const assignedStaff = targetStaff[idx % targetStaff.length];
+              const realIndex = newStudents.findIndex(ns => ns.id === s.id);
+              if(realIndex !== -1) {
+                  newStudents[realIndex] = { ...newStudents[realIndex], tutorId: assignedStaff.id };
+                  updatedCount++;
+              }
+          });
+      });
+      
+      setStudents(newStudents);
+      alert(`Successfully split and assigned ${updatedCount} new students to tutors in their respective departments.`);
   };
 
   // --- STUDENT HANDLERS ---
@@ -154,13 +196,23 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   // --- STAFF HANDLERS ---
   const handleStaffSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      
+      // Handle ID change based on HOD Status
+      let finalId = currentStaff.id;
+      if (currentStaff.isHod && !finalId.startsWith('HOD')) {
+          finalId = `HOD-${currentStaff.department}`;
+      } else if (!currentStaff.isHod && finalId.startsWith('HOD')) {
+          finalId = `ST${Math.floor(Math.random() * 1000)}`; // Revert to random ST ID
+      }
+
       const staffToSave = {
           ...currentStaff,
+          id: finalId,
           allocatedSubjects: staffSubjectsInput.split(',').map(s => s.trim()).filter(s => s.length > 0)
       };
 
       if (isEditing) {
-          setStaffList(prev => prev.map(s => s.id === currentStaff.id ? staffToSave : s));
+          setStaffList(prev => prev.map(s => s.email === currentStaff.email ? staffToSave : s)); // Use email to match to avoid ID change issues
       } else {
           setStaffList(prev => [...prev, staffToSave]);
       }
@@ -175,7 +227,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   };
 
   const initStaffAdd = () => {
-      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', department: departments[0]?.id || '', allocatedSubjects: [] });
+      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', department: departments[0]?.id || '', allocatedSubjects: [], isHod: false });
       setStaffSubjectsInput('');
       setIsEditing(false);
       setShowForm(true);
@@ -183,22 +235,18 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
 
   // --- REQUEST HANDLERS ---
   const executeRequest = (req: ChangeRequest) => {
-      // Update actual student data
       const studentIndex = students.findIndex(s => s.id === req.studentId);
       if (studentIndex === -1) return;
 
       const updatedStudents = [...students];
       const student = updatedStudents[studentIndex];
 
-      // Map field names to keys (Simple mapping for demo)
       if (req.field.toLowerCase().includes('name')) student.name = req.newValue;
       else if (req.field.toLowerCase().includes('contact')) student.contactNumber = req.newValue;
       else if (req.field.toLowerCase().includes('address')) student.address = req.newValue;
       else if (req.field.toLowerCase().includes('dob')) student.dob = req.newValue;
 
       setStudents(updatedStudents);
-
-      // Update Request Status
       setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'approved' } : r));
       alert("Data updated and Request marked as Completed.");
   };
@@ -241,10 +289,13 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                 <div className="text-sm text-gray-500">Total Students: {students.length}</div>
                 <div className="flex gap-2">
                     <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
-                    <button onClick={triggerFileUpload} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700">
+                    <button onClick={handleAutoAssignTutors} className="bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-orange-700 text-sm font-medium" title="Split unassigned students among department staff">
+                        <UserPlus size={16} /> Auto-Assign Tutors
+                    </button>
+                    <button onClick={triggerFileUpload} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 text-sm font-medium">
                         <Upload size={16} /> Import CSV
                     </button>
-                    <button onClick={initStudentAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700">
+                    <button onClick={initStudentAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 text-sm font-medium">
                         <Plus size={16} /> Add Student
                     </button>
                 </div>
@@ -258,7 +309,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                 <th className="p-4">Name</th>
                                 <th className="p-4">Email</th>
                                 <th className="p-4">Department</th>
-                                <th className="p-4">Residence</th>
+                                <th className="p-4">Tutor Status</th>
                                 <th className="p-4">Actions</th>
                             </tr>
                         </thead>
@@ -270,9 +321,11 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                     <td className="p-4 text-gray-500">{s.email}</td>
                                     <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${s.residenceType === 'Hosteller' ? 'bg-indigo-50 text-indigo-700' : 'bg-green-50 text-green-700'}`}>
-                                            {s.residenceType}
-                                        </span>
+                                        {s.tutorId ? (
+                                            <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-mono border border-green-200">{s.tutorId}</span>
+                                        ) : (
+                                            <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-xs font-bold border border-red-200">Unassigned</span>
+                                        )}
                                     </td>
                                     <td className="p-4">
                                         <button onClick={() => initStudentEdit(s)} className="text-blue-600 hover:underline mr-3">Edit</button>
@@ -287,7 +340,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
             {/* STUDENT FORM MODAL */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-xl w-full max-w-lg">
+                    <div className="bg-white p-6 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Student' : 'Add Student'}</h2>
                         <form onSubmit={handleStudentSubmit} className="space-y-3">
                             <input placeholder="Name" required className="w-full border p-2 rounded" value={currentStudent.name} onChange={e => setCurrentStudent({...currentStudent, name: e.target.value})} />
@@ -305,17 +358,41 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
-                                <select className="w-full border p-2 rounded" value={currentStudent.department} onChange={e => setCurrentStudent({...currentStudent, department: e.target.value})}>
-                                    <option value="">Select Dept</option>
-                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                </select>
+                                <div>
+                                    <label className="text-xs text-gray-500 mb-1 block">Department</label>
+                                    <select className="w-full border p-2 rounded" value={currentStudent.department} onChange={e => setCurrentStudent({...currentStudent, department: e.target.value})}>
+                                        <option value="">Select Dept</option>
+                                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 mb-1 block">Residence</label>
+                                    <select 
+                                        className="w-full border p-2 rounded" 
+                                        value={currentStudent.residenceType} 
+                                        onChange={e => setCurrentStudent({...currentStudent, residenceType: e.target.value as 'Hosteller' | 'Day Scholar'})}
+                                    >
+                                        <option value="Day Scholar">Day Scholar</option>
+                                        <option value="Hosteller">Hosteller</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                             {/* Tutor Allocation */}
+                             <div>
+                                <label className="block text-xs font-bold text-indigo-600 mb-1">Assign Tutor / Mentor</label>
                                 <select 
-                                    className="w-full border p-2 rounded" 
-                                    value={currentStudent.residenceType} 
-                                    onChange={e => setCurrentStudent({...currentStudent, residenceType: e.target.value as 'Hosteller' | 'Day Scholar'})}
+                                    className="w-full border p-2 rounded bg-indigo-50 border-indigo-200"
+                                    value={currentStudent.tutorId || ''}
+                                    onChange={e => setCurrentStudent({...currentStudent, tutorId: e.target.value})}
                                 >
-                                    <option value="Day Scholar">Day Scholar</option>
-                                    <option value="Hosteller">Hosteller</option>
+                                    <option value="">-- Select Tutor (Optional) --</option>
+                                    {staffList
+                                        .filter(s => currentStudent.department ? s.department === currentStudent.department : true)
+                                        .map(s => (
+                                            <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                                        ))
+                                    }
                                 </select>
                             </div>
                             
@@ -351,21 +428,28 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 border-b">
                         <tr>
-                            <th className="p-4">ID</th>
+                            <th className="p-4">ID / Code</th>
                             <th className="p-4">Name</th>
                             <th className="p-4">Email</th>
                             <th className="p-4">Dept</th>
+                            <th className="p-4">Role</th>
                             <th className="p-4">Allocated Subjects</th>
                             <th className="p-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {staffList.map(s => (
-                            <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
-                                <td className="p-4 font-mono">{s.id}</td>
+                            <tr key={s.id} className={`border-b last:border-0 hover:bg-gray-50 ${s.isHod ? 'bg-indigo-50/50' : ''}`}>
+                                <td className="p-4 font-mono text-gray-700 font-bold">{s.id}</td>
                                 <td className="p-4 font-medium">{s.name}</td>
                                 <td className="p-4 text-gray-500">{s.email}</td>
                                 <td className="p-4"><span className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
+                                <td className="p-4">
+                                    {s.isHod 
+                                        ? <span className="flex items-center gap-1 text-indigo-700 font-bold text-xs"><Briefcase size={12}/> Head of Dept</span>
+                                        : <span className="text-gray-500 text-xs">Staff</span>
+                                    }
+                                </td>
                                 <td className="p-4">
                                     <div className="flex flex-wrap gap-1">
                                         {s.allocatedSubjects && s.allocatedSubjects.length > 0 
@@ -398,6 +482,20 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
                             </div>
+
+                            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded border border-gray-200">
+                                <input 
+                                    type="checkbox" 
+                                    id="isHod" 
+                                    checked={currentStaff.isHod} 
+                                    onChange={e => setCurrentStaff({...currentStaff, isHod: e.target.checked})}
+                                    className="w-5 h-5 text-indigo-600"
+                                />
+                                <div>
+                                    <label htmlFor="isHod" className="block text-sm font-bold text-indigo-900">Assign as Head of Department (HOD)</label>
+                                    <p className="text-xs text-gray-500">This will grant access to all student data in the department and change ID code.</p>
+                                </div>
+                            </div>
                             
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-1">Allocated Subjects (Course Codes)</label>
@@ -407,7 +505,6 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                     value={staffSubjectsInput}
                                     onChange={e => setStaffSubjectsInput(e.target.value)} 
                                 />
-                                <p className="text-[10px] text-gray-400 mt-1">Staff can only mark attendance for these specific subjects.</p>
                             </div>
 
                             <div className="flex justify-end gap-2 mt-4">
@@ -508,11 +605,11 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                           <h3 className="font-bold text-blue-900 mb-2">Student & Staff Login Policy</h3>
                           <p className="text-sm text-blue-800 mb-2">
-                              When new students or staff are added (manually or via Bulk CSV Import), they can access the system using their email address as the username.
+                              Login uses <strong>Email Address</strong> as Username.
                           </p>
                           <ul className="list-disc list-inside text-sm text-blue-800 font-mono">
-                              <li>Student Default Password: <strong>{DEFAULT_CREDS.STUDENT_PASS}</strong></li>
-                              <li>Staff Default Password: <strong>{DEFAULT_CREDS.STAFF_PASS}</strong></li>
+                              <li>Student Password: <strong>{DEFAULT_CREDS.STUDENT_PASS}</strong></li>
+                              <li>Staff/HOD Password: <strong>{DEFAULT_CREDS.STAFF_PASS}</strong></li>
                           </ul>
                       </div>
 
@@ -531,16 +628,6 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                    Pass: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN2.pass}</code>
                                </div>
                            </div>
-                      </div>
-
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                          <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2"><FileText size={16}/> CSV Import Format Guide</h3>
-                          <p className="text-xs text-gray-500 mb-2">The CSV file must have the following header row and column structure:</p>
-                          <code className="block bg-black text-green-400 p-3 rounded text-sm overflow-x-auto">
-                              Name, Email, Department, Grade, Section, ContactNumber
-                          </code>
-                          <p className="text-xs text-gray-500 mt-2">Example: John, john@edu.com, CSE, I Year, A, 555-0123</p>
-                          <p className="text-xs text-gray-400 italic mt-1">Note: Roll numbers are auto-generated for imports.</p>
                       </div>
                   </div>
 
