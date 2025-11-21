@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { Student, Marks, Department, AttendanceRecord } from '../types';
-import { Edit3, Sparkles, Calendar, BookOpen, AlertTriangle, FileText } from 'lucide-react';
+import { Student, Department, AttendanceRecord } from '../types';
+import { Edit3, Sparkles, Calendar, BookOpen, AlertTriangle, FileText, Search, Filter } from 'lucide-react';
 import { generateStudentReport } from '../services/geminiService';
 
 interface StaffProps {
@@ -13,6 +14,10 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
+
   // Attendance State
   const [attDate, setAttDate] = useState(new Date().toISOString().split('T')[0]);
   const [attCourse, setAttCourse] = useState('');
@@ -23,14 +28,26 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
 
   const student = students.find(s => s.id === selectedStudentId);
 
+  const filteredStudents = students.filter(s => {
+      const matchDept = deptFilter ? s.department === deptFilter : true;
+      const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          s.id.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchDept && matchSearch;
+  });
+
   const updateStudentState = (updatedStudent: Student) => {
     setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
   };
 
-  const handleMarksChange = (subject: keyof Marks, value: string) => {
+  const handleMarksChange = (subjectCode: string, value: string) => {
     if (!student) return;
     const numValue = Math.min(100, Math.max(0, Number(value)));
-    const updatedStudent = { ...student, marks: { ...student.marks, [subject]: numValue } };
+    
+    const updatedMarks = student.marks.map(m => 
+      m.code === subjectCode ? { ...m, score: numValue } : m
+    );
+
+    const updatedStudent = { ...student, marks: updatedMarks };
     updateStudentState(updatedStudent);
   };
 
@@ -87,26 +104,57 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
     <div className="flex h-[calc(100vh-5rem)] gap-6">
       {/* Sidebar List */}
       <div className="w-1/4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-        <div className="p-4 bg-gray-50 border-b">
-           <h2 className="font-bold text-gray-700">Student List</h2>
-           <p className="text-xs text-gray-500">Select to manage</p>
+        <div className="p-4 bg-gray-50 border-b space-y-3">
+           <div>
+               <h2 className="font-bold text-gray-700">Student Management</h2>
+               <p className="text-xs text-gray-500">Find and manage students</p>
+           </div>
+           
+           {/* FILTERS */}
+           <div className="space-y-2">
+               <div className="relative">
+                   <Search size={14} className="absolute left-2 top-2.5 text-gray-400" />
+                   <input 
+                     type="text" 
+                     placeholder="Search Name or Roll No..." 
+                     className="w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:border-indigo-500 outline-none"
+                     value={searchTerm}
+                     onChange={e => setSearchTerm(e.target.value)}
+                   />
+               </div>
+               <div className="relative">
+                   <Filter size={14} className="absolute left-2 top-2.5 text-gray-400" />
+                   <select 
+                     className="w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:border-indigo-500 outline-none bg-white appearance-none"
+                     value={deptFilter}
+                     onChange={e => setDeptFilter(e.target.value)}
+                   >
+                       <option value="">All Departments</option>
+                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                   </select>
+               </div>
+           </div>
         </div>
         <div className="overflow-y-auto flex-1">
-            <ul>
-            {students.map(s => (
-                <li key={s.id}>
-                <button
-                    onClick={() => setSelectedStudentId(s.id)}
-                    className={`w-full text-left p-4 border-b border-gray-50 hover:bg-indigo-50 transition-colors flex justify-between items-center ${selectedStudentId === s.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
-                >
-                    <div>
-                        <div className="font-medium text-gray-900">{s.name}</div>
-                        <div className="text-xs text-gray-500">{s.id} • {s.department}</div>
-                    </div>
-                </button>
-                </li>
-            ))}
-            </ul>
+            {filteredStudents.length === 0 ? (
+                <div className="p-4 text-center text-xs text-gray-400">No students found matching filters.</div>
+            ) : (
+                <ul>
+                {filteredStudents.map(s => (
+                    <li key={s.id}>
+                    <button
+                        onClick={() => setSelectedStudentId(s.id)}
+                        className={`w-full text-left p-4 border-b border-gray-50 hover:bg-indigo-50 transition-colors flex justify-between items-center ${selectedStudentId === s.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
+                    >
+                        <div>
+                            <div className="font-medium text-gray-900">{s.name}</div>
+                            <div className="text-xs text-gray-500 font-mono">{s.id} • {s.grade}</div>
+                        </div>
+                    </button>
+                    </li>
+                ))}
+                </ul>
+            )}
         </div>
       </div>
 
@@ -117,16 +165,22 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
             
             {/* 1. ACADEMIC MARKS */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><Edit3 size={20} /> Update Marks</h3>
-                <div className="grid grid-cols-5 gap-4">
-                  {Object.entries(student.marks).map(([subject, score]) => (
-                    <div key={subject}>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{subject}</label>
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <Edit3 size={20} /> Update Marks (Sem {student.currentSemester})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {student.marks.map((subject) => (
+                    <div key={subject.code} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <div className="flex justify-between items-start mb-2">
+                         <label className="text-xs font-bold text-gray-600 uppercase">{subject.code}</label>
+                         <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 rounded">{subject.credits} Cr</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mb-2 h-8 line-clamp-2" title={subject.name}>{subject.name}</div>
                       <input
                         type="number"
-                        value={score}
-                        onChange={(e) => handleMarksChange(subject as keyof Marks, e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-center font-mono focus:border-indigo-500 outline-none"
+                        value={subject.score}
+                        onChange={(e) => handleMarksChange(subject.code, e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-center font-mono focus:border-indigo-500 outline-none focus:ring-2 ring-indigo-100"
                       />
                     </div>
                   ))}
@@ -143,7 +197,16 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                     </div>
                     <div className="flex-1">
                         <label className="block text-xs font-medium text-gray-500 mb-1">Course Code</label>
-                        <input type="text" placeholder="e.g. CS101" className="w-full border p-2 rounded" value={attCourse} onChange={e => setAttCourse(e.target.value)} />
+                        <select 
+                            className="w-full border p-2 rounded" 
+                            value={attCourse} 
+                            onChange={e => setAttCourse(e.target.value)}
+                        >
+                            <option value="">Select Course...</option>
+                            {student.marks.map(s => (
+                                <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
@@ -163,7 +226,12 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><AlertTriangle size={20} className="text-amber-500" /> Backlogs Management</h3>
                  <div className="flex gap-2 mb-4">
-                     <input type="text" placeholder="Subject Name" className="border p-2 rounded flex-1" value={backlogSubject} onChange={e => setBacklogSubject(e.target.value)} />
+                     <select className="border p-2 rounded flex-1" value={backlogSubject} onChange={e => setBacklogSubject(e.target.value)}>
+                        <option value="">Select Subject to Add as Backlog...</option>
+                        {student.marks.map(s => (
+                            <option key={s.code} value={`${s.code} - ${s.name}`}>{s.code} - {s.name}</option>
+                        ))}
+                     </select>
                      <button onClick={addBacklog} className="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600">Add Backlog</button>
                  </div>
                  <div className="flex flex-wrap gap-2">
@@ -189,7 +257,7 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-100 text-gray-700 font-bold">
                             <tr>
-                                <th className="p-3 border-r">Category</th>
+                                <th className="p-3 border-r w-1/4">Category</th>
                                 <th className="p-3">Details / Status</th>
                             </tr>
                         </thead>
@@ -197,9 +265,12 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                             <tr>
                                 <td className="p-3 font-medium bg-gray-50 border-r">Marks Summary</td>
                                 <td className="p-3">
-                                    <div className="flex gap-4 text-xs">
-                                        {Object.entries(student.marks).map(([k, v]) => (
-                                            <div key={k}><span className="uppercase font-bold text-gray-500">{k}:</span> {v}</div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        {student.marks.map(m => (
+                                            <div key={m.code} className="flex justify-between border-b border-dashed pb-1">
+                                                <span className="font-medium text-gray-600" title={m.name}>{m.code}</span>
+                                                <span className="font-bold">{m.score}</span>
+                                            </div>
                                         ))}
                                     </div>
                                 </td>

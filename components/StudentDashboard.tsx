@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Student, ChangeRequest } from '../types';
 import { Send, History, FileText, AlertTriangle } from 'lucide-react';
@@ -41,7 +42,10 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">My Portal</h1>
-          <p className="text-gray-500">{student.name} | {student.department} - {student.grade}{student.section}</p>
+          <p className="text-gray-500 font-mono">
+            {student.name} | {student.id} <br/> 
+            {student.department} - {student.grade} (Sem {student.currentSemester})
+          </p>
         </div>
         <button onClick={() => setShowModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2 shadow-md">
           <Send size={16} /> Raise Request
@@ -59,16 +63,30 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
               <table className="w-full border-collapse border border-gray-200 text-sm">
                   <tbody>
                       <tr className="border-b">
-                          <td className="p-3 w-1/3 bg-gray-50 font-bold text-gray-700 border-r">Marks Obtained</td>
+                          <td className="p-3 w-1/3 bg-gray-50 font-bold text-gray-700 border-r align-top">Marks Obtained</td>
                           <td className="p-3">
-                              <div className="grid grid-cols-3 gap-2">
-                                  {Object.entries(student.marks).map(([sub, marks]) => (
-                                      <div key={sub} className="flex justify-between border-b border-dashed pb-1">
-                                          <span className="capitalize text-gray-500">{sub}</span>
-                                          <span className="font-mono font-bold">{marks}</span>
-                                      </div>
-                                  ))}
-                              </div>
+                              <table className="w-full text-left text-xs">
+                                  <thead>
+                                      <tr className="text-gray-500 border-b">
+                                          <th className="pb-1">Code</th>
+                                          <th className="pb-1">Subject</th>
+                                          <th className="pb-1 text-right">Credits</th>
+                                          <th className="pb-1 text-right">Score</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {student.marks.map((m) => (
+                                          <tr key={m.code} className="border-b last:border-0 border-gray-100">
+                                              <td className="py-2 font-mono text-gray-600">{m.code}</td>
+                                              <td className="py-2 font-medium">{m.name}</td>
+                                              <td className="py-2 text-right text-gray-400">{m.credits}</td>
+                                              <td className={`py-2 text-right font-bold ${m.score < 50 ? 'text-red-600' : 'text-gray-800'}`}>
+                                                  {m.score}
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
                           </td>
                       </tr>
                       <tr className="border-b">
@@ -87,7 +105,7 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
                           <td className="p-3 bg-gray-50 font-bold text-gray-700 border-r">Backlogs / Arrears</td>
                           <td className="p-3">
                               {student.backlogs.length > 0 ? (
-                                  <div className="flex gap-2 text-red-600 font-bold items-center">
+                                  <div className="flex gap-2 text-red-600 font-bold items-center flex-wrap">
                                       <AlertTriangle size={16} />
                                       {student.backlogs.join(", ")}
                                   </div>

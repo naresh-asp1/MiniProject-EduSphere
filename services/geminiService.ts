@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Student } from "../types";
 
@@ -7,21 +8,20 @@ const ai = new GoogleGenAI({ apiKey });
 export const generateStudentReport = async (student: Student): Promise<string> => {
   if (!apiKey) return "API Key is missing. Cannot generate report.";
 
+  const marksSummary = student.marks.map(m => `${m.code} (${m.name}): ${m.score}`).join('\n');
+
   const prompt = `
     You are a senior academic counselor. Write a concise but professional Annual Performance Report (approx 50-75 words) for a student based on the following data.
     
     Student Name: ${student.name}
-    Grade: ${student.grade}
+    Roll No: ${student.id}
+    Department: ${student.department} - Sem ${student.currentSemester}
     Attendance: ${student.attendancePercentage}%
     
-    Marks:
-    - Math: ${student.marks.math}
-    - Science: ${student.marks.science}
-    - English: ${student.marks.english}
-    - History: ${student.marks.history}
-    - Computer Science: ${student.marks.computer}
+    Marks Obtained:
+    ${marksSummary}
     
-    Highlight strengths and areas for improvement. Tone should be constructive and formal.
+    Highlight strengths and areas for improvement based on the subjects provided. Tone should be constructive and formal.
   `;
 
   try {
@@ -40,11 +40,16 @@ export const analyzeClassPerformance = async (students: Student[]): Promise<stri
   if (!apiKey) return "API Key is missing.";
 
   // Summarize data to save tokens
-  const summaryData = students.map(s => ({
-    name: s.name,
-    avg: (s.marks.math + s.marks.science + s.marks.english + s.marks.history + s.marks.computer) / 5,
-    attendance: s.attendancePercentage
-  }));
+  const summaryData = students.map(s => {
+    const totalScore = s.marks.reduce((acc, m) => acc + m.score, 0);
+    const avg = s.marks.length > 0 ? totalScore / s.marks.length : 0;
+    return {
+      name: s.name,
+      rollNo: s.id,
+      avgScore: avg.toFixed(1),
+      attendance: s.attendancePercentage
+    };
+  });
 
   const prompt = `
     Analyze the following class performance data summary. 

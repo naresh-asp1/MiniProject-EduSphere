@@ -44,6 +44,11 @@ const App: React.FC = () => {
     setShowLanding(true);
   };
 
+  // Get Current Student for Student View
+  const currentStudent = user?.role === Role.STUDENT 
+      ? (students.find(s => s.email === user.username || s.id === user.id) || students[0]) 
+      : students[0];
+
   if (showLanding) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-800 to-black flex flex-col items-center justify-center text-white relative overflow-hidden">
@@ -85,7 +90,7 @@ const App: React.FC = () => {
   }
 
   if (!user) {
-    return <Auth onLogin={setUser} />;
+    return <Auth onLogin={setUser} students={students} staffList={staffList} />;
   }
 
   return (
@@ -157,7 +162,7 @@ const App: React.FC = () => {
         
         {user.role === Role.STUDENT && (
           <StudentDashboard 
-            student={students[0]} 
+            student={currentStudent} 
             requests={requests} 
             setRequests={setRequests} 
           />

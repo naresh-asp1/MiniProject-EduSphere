@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Student, Department, StaffProfile, Marks, ChangeRequest } from '../types';
-import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow } from 'lucide-react';
+
+import React, { useState, useRef } from 'react';
+import { Student, Department, StaffProfile, ChangeRequest, DEFAULT_CREDS } from '../types';
+import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key } from 'lucide-react';
 
 interface Admin1Props {
   students: Student[];
@@ -13,7 +14,6 @@ interface Admin1Props {
   setRequests: React.Dispatch<React.SetStateAction<ChangeRequest[]>>;
 }
 
-const EMPTY_MARKS: Marks = { math: 0, science: 0, english: 0, history: 0, computer: 0 };
 const EMPTY_STUDENT: Student = {
   id: '',
   name: '',
@@ -25,11 +25,13 @@ const EMPTY_STUDENT: Student = {
   contactNumber: '',
   address: '',
   verified: false,
-  marks: EMPTY_MARKS,
+  marks: [],
   attendanceLog: [],
   attendancePercentage: 0,
   backlogs: [],
-  performanceReport: ''
+  performanceReport: '',
+  batch: new Date().getFullYear(),
+  currentSemester: 1
 };
 
 export const Admin1Dashboard: React.FC<Admin1Props> = ({ 
@@ -41,6 +43,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'departments' | 'requests'>('students');
   const [isEditing, setIsEditing] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showCreds, setShowCreds] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Student State
   const [currentStudent, setCurrentStudent] = useState<Student>(EMPTY_STUDENT);
@@ -50,6 +54,63 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   
   // Staff State
   const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '' });
+
+  // --- CSV IMPORT HANDLER ---
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        // Expect CSV header: Name,Email,Department,Grade,Section,Contact
+        const rows = text.split('\n');
+        const dataRows = rows.slice(1).filter(r => r.trim().length > 0);
+        
+        const newStudents: Student[] = dataRows.map((row, index) => {
+            const cols = row.split(',').map(c => c.trim());
+            if (cols.length < 3) return null;
+
+            const batch = new Date().getFullYear();
+            const rollNo = `IMP${batch}${index}`;
+
+            return {
+                ...EMPTY_STUDENT,
+                id: rollNo,
+                name: cols[0] || 'Unknown',
+                email: cols[1] || `imported.${Date.now()}.${index}@edusphere.edu`,
+                department: cols[2] || 'General',
+                grade: cols[3] || 'I Year',
+                section: cols[4] || 'A',
+                contactNumber: cols[5] || '',
+                verified: true,
+                marks: [], // Imported students start with empty marks
+                dob: '2005-01-01',
+                address: 'Imported via Bulk Upload',
+                batch: batch,
+                currentSemester: 1
+            };
+        }).filter((s): s is Student => s !== null);
+
+        if (newStudents.length > 0) {
+            setStudents(prev => [...prev, ...newStudents]);
+            alert(`Successfully imported ${newStudents.length} students!\n\nDefault Password: ${DEFAULT_CREDS.STUDENT_PASS}`);
+        } else {
+            alert("No valid student data found in CSV.");
+        }
+      } catch (err) {
+          console.error(err);
+          alert("Failed to parse CSV. Check format.");
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
+
+  const triggerFileUpload = () => {
+      fileInputRef.current?.click();
+  };
 
   // --- STUDENT HANDLERS ---
   const handleStudentSubmit = (e: React.FormEvent) => {
@@ -69,7 +130,12 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   };
 
   const initStudentAdd = () => {
-      setCurrentStudent({ ...EMPTY_STUDENT, id: `S${Math.floor(Math.random() * 10000)}` });
+      const batch = new Date().getFullYear();
+      setCurrentStudent({ 
+          ...EMPTY_STUDENT, 
+          id: `${batch}TMP${Math.floor(Math.random() * 999)}`,
+          batch: batch 
+      });
       setIsEditing(false);
       setShowForm(true);
   };
@@ -129,19 +195,24 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
             <p className="text-gray-500">Manage core data and finalize requests.</p>
         </div>
         
-        <div className="flex bg-white p-1 rounded-lg shadow-sm border border-gray-200">
-            <button onClick={() => setActiveTab('students')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'students' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                <Users size={16} /> Students
+        <div className="flex items-center gap-2">
+             <button onClick={() => setShowCreds(true)} className="bg-white border border-gray-300 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium">
+                <Key size={16} /> Credentials Guide
             </button>
-            <button onClick={() => setActiveTab('staff')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'staff' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                <UserCog size={16} /> Staff
-            </button>
-            <button onClick={() => setActiveTab('departments')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'departments' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                <Building2 size={16} /> Depts
-            </button>
-            <button onClick={() => setActiveTab('requests')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'requests' ? 'bg-amber-100 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                <GitPullRequestArrow size={16} /> Requests
-            </button>
+            <div className="flex bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+                <button onClick={() => setActiveTab('students')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'students' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                    <Users size={16} /> Students
+                </button>
+                <button onClick={() => setActiveTab('staff')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'staff' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                    <UserCog size={16} /> Staff
+                </button>
+                <button onClick={() => setActiveTab('departments')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'departments' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                    <Building2 size={16} /> Depts
+                </button>
+                <button onClick={() => setActiveTab('requests')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'requests' ? 'bg-amber-100 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                    <GitPullRequestArrow size={16} /> Requests
+                </button>
+            </div>
         </div>
       </div>
 
@@ -150,33 +221,48 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
       {/* 1. STUDENTS TAB */}
       {activeTab === 'students' && (
           <>
-            <div className="flex justify-end mb-4">
-                <button onClick={initStudentAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"><Plus size={16} /> Add Student</button>
+            <div className="flex justify-between items-center mb-4">
+                <div className="text-sm text-gray-500">Total Students: {students.length}</div>
+                <div className="flex gap-2">
+                    <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
+                    <button onClick={triggerFileUpload} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700">
+                        <Upload size={16} /> Import CSV
+                    </button>
+                    <button onClick={initStudentAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700">
+                        <Plus size={16} /> Add Student
+                    </button>
+                </div>
             </div>
             <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 border-b">
-                        <tr>
-                            <th className="p-4">ID</th>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">Department</th>
-                            <th className="p-4">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {students.map(s => (
-                            <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
-                                <td className="p-4 font-mono">{s.id}</td>
-                                <td className="p-4">{s.name}</td>
-                                <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
-                                <td className="p-4">
-                                    <button onClick={() => initStudentEdit(s)} className="text-blue-600 hover:underline mr-3">Edit</button>
-                                    <button onClick={() => setStudents(prev => prev.filter(st => st.id !== s.id))} className="text-red-600 hover:underline">Delete</button>
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50 border-b">
+                            <tr>
+                                <th className="p-4">Roll No</th>
+                                <th className="p-4">Name</th>
+                                <th className="p-4">Email</th>
+                                <th className="p-4">Department</th>
+                                <th className="p-4">Batch</th>
+                                <th className="p-4">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {students.map(s => (
+                                <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
+                                    <td className="p-4 font-mono">{s.id}</td>
+                                    <td className="p-4 font-medium">{s.name}</td>
+                                    <td className="p-4 text-gray-500">{s.email}</td>
+                                    <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
+                                    <td className="p-4">{s.batch}</td>
+                                    <td className="p-4">
+                                        <button onClick={() => initStudentEdit(s)} className="text-blue-600 hover:underline mr-3">Edit</button>
+                                        <button onClick={() => setStudents(prev => prev.filter(st => st.id !== s.id))} className="text-red-600 hover:underline">Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
             {/* STUDENT FORM MODAL */}
             {showForm && (
@@ -186,12 +272,24 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                         <form onSubmit={handleStudentSubmit} className="space-y-3">
                             <input placeholder="Name" required className="w-full border p-2 rounded" value={currentStudent.name} onChange={e => setCurrentStudent({...currentStudent, name: e.target.value})} />
                             <input placeholder="Email" type="email" required className="w-full border p-2 rounded" value={currentStudent.email} onChange={e => setCurrentStudent({...currentStudent, email: e.target.value})} />
+                            
                             <div className="grid grid-cols-2 gap-3">
-                                <input placeholder="Grade" className="w-full border p-2 rounded" value={currentStudent.grade} onChange={e => setCurrentStudent({...currentStudent, grade: e.target.value})} />
+                                <div>
+                                    <label className="text-xs text-gray-500">Batch (Join Year)</label>
+                                    <input type="number" className="w-full border p-2 rounded" value={currentStudent.batch} onChange={e => setCurrentStudent({...currentStudent, batch: parseInt(e.target.value)})} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500">Roll No</label>
+                                    <input type="text" className="w-full border p-2 rounded" value={currentStudent.id} onChange={e => setCurrentStudent({...currentStudent, id: e.target.value})} />
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
                                 <select className="w-full border p-2 rounded" value={currentStudent.department} onChange={e => setCurrentStudent({...currentStudent, department: e.target.value})}>
                                     <option value="">Select Dept</option>
                                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
+                                <input placeholder="Grade (e.g., I Year)" className="w-full border p-2 rounded" value={currentStudent.grade} onChange={e => setCurrentStudent({...currentStudent, grade: e.target.value})} />
                             </div>
                             <div className="flex justify-end gap-2 mt-4">
                                 <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
@@ -216,6 +314,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                         <tr>
                             <th className="p-4">ID</th>
                             <th className="p-4">Name</th>
+                            <th className="p-4">Email</th>
                             <th className="p-4">Assigned Department</th>
                             <th className="p-4">Actions</th>
                         </tr>
@@ -224,7 +323,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                         {staffList.map(s => (
                             <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
                                 <td className="p-4 font-mono">{s.id}</td>
-                                <td className="p-4">{s.name}</td>
+                                <td className="p-4 font-medium">{s.name}</td>
+                                <td className="p-4 text-gray-500">{s.email}</td>
                                 <td className="p-4"><span className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
                                 <td className="p-4">
                                     <button onClick={() => setStaffList(prev => prev.filter(st => st.id !== s.id))} className="text-red-600 hover:underline">Delete</button>
@@ -328,6 +428,62 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                       )}
                   </tbody>
               </table>
+          </div>
+      )}
+
+      {/* CREDENTIALS MODAL */}
+      {showCreds && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white p-8 rounded-xl w-full max-w-2xl">
+                  <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-800">System Access Credentials</h2>
+                      <button onClick={() => setShowCreds(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
+                  </div>
+                  
+                  <div className="space-y-6">
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                          <h3 className="font-bold text-blue-900 mb-2">Student & Staff Login Policy</h3>
+                          <p className="text-sm text-blue-800 mb-2">
+                              When new students or staff are added (manually or via Bulk CSV Import), they can access the system using their email address as the username.
+                          </p>
+                          <ul className="list-disc list-inside text-sm text-blue-800 font-mono">
+                              <li>Student Default Password: <strong>{DEFAULT_CREDS.STUDENT_PASS}</strong></li>
+                              <li>Staff Default Password: <strong>{DEFAULT_CREDS.STAFF_PASS}</strong></li>
+                          </ul>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                           <div className="p-4 border rounded-lg">
+                               <h4 className="font-bold text-gray-700">Admin I (Master)</h4>
+                               <div className="text-sm mt-2">
+                                   User: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN1.user}</code><br/>
+                                   Pass: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN1.pass}</code>
+                               </div>
+                           </div>
+                           <div className="p-4 border rounded-lg">
+                               <h4 className="font-bold text-gray-700">Admin II (Verifier)</h4>
+                               <div className="text-sm mt-2">
+                                   User: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN2.user}</code><br/>
+                                   Pass: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN2.pass}</code>
+                               </div>
+                           </div>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2"><FileText size={16}/> CSV Import Format Guide</h3>
+                          <p className="text-xs text-gray-500 mb-2">The CSV file must have the following header row and column structure:</p>
+                          <code className="block bg-black text-green-400 p-3 rounded text-sm overflow-x-auto">
+                              Name, Email, Department, Grade, Section, ContactNumber
+                          </code>
+                          <p className="text-xs text-gray-500 mt-2">Example: John, john@edu.com, CSE, I Year, A, 555-0123</p>
+                          <p className="text-xs text-gray-400 italic mt-1">Note: Roll numbers are auto-generated for imports.</p>
+                      </div>
+                  </div>
+
+                  <div className="mt-8 flex justify-end">
+                      <button onClick={() => setShowCreds(false)} className="bg-gray-800 text-white px-6 py-2 rounded-lg hover:bg-gray-900">Close Guide</button>
+                  </div>
+              </div>
           </div>
       )}
 
