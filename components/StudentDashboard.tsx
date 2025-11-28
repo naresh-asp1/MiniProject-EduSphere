@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Student, ChangeRequest, StaffProfile } from '../types';
-import { Send, History, FileText, AlertTriangle, User, Mail, Phone, MapPin, Calendar, GraduationCap, BookOpen, ChevronRight, TrendingUp, Award, Home, UserCheck } from 'lucide-react';
+import { Send, History, FileText, AlertTriangle, User, Mail, Phone, MapPin, Calendar, GraduationCap, BookOpen, ChevronRight, TrendingUp, Award, Home, UserCheck, X, CheckCircle, XCircle } from 'lucide-react';
 
 interface StudentProps {
   student: Student;
@@ -16,6 +16,7 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
   const [newValue, setNewValue] = useState('');
   const [reason, setReason] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 
   const myRequests = requests.filter(r => r.studentId === student.id);
   const myTutor = staffList.find(s => s.id === student.tutorId);
@@ -50,6 +51,15 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
 
   // Generate array of available semesters [1, ... , currentSemester]
   const availableSemesters = Array.from({ length: student.currentSemester }, (_, i) => i + 1);
+
+  // Group attendance
+  const attendanceByDate = student.attendanceLog.reduce((acc, record) => {
+      if (!acc[record.date]) acc[record.date] = [];
+      acc[record.date].push(record);
+      return acc;
+  }, {} as Record<string, typeof student.attendanceLog>);
+  const sortedDates = Object.keys(attendanceByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -256,9 +266,10 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
                         )}
                     </div>
 
-                    <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
-                         <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
-                            <TrendingUp size={18} /> Attendance Overview
+                    <div className="bg-blue-50 rounded-xl p-5 border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setShowAttendanceModal(true)}>
+                         <h3 className="font-bold text-blue-800 mb-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2"><TrendingUp size={18} /> Attendance Overview</div>
+                            <ChevronRight size={16} />
                         </h3>
                         <div className="flex items-end gap-4">
                             <span className="text-4xl font-bold text-blue-600">{student.attendancePercentage}%</span>
@@ -267,6 +278,7 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
                         <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
                             <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${student.attendancePercentage}%` }}></div>
                         </div>
+                        <div className="mt-2 text-xs text-blue-600 text-right font-medium">Click to view detailed daily log</div>
                     </div>
                 </div>
             </div>
@@ -321,6 +333,53 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
             </form>
           </div>
         </div>
+      )}
+
+      {/* ATTENDANCE MODAL */}
+      {showAttendanceModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
+                  <div className="p-6 border-b flex justify-between items-center">
+                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><TrendingUp/> Daily Attendance Log</h2>
+                      <button onClick={() => setShowAttendanceModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+                      {sortedDates.length > 0 ? sortedDates.map(date => (
+                          <div key={date} className="mb-4 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                              <div className="bg-gray-50 px-4 py-2 font-bold text-gray-700 text-sm flex items-center gap-2 border-b">
+                                  <Calendar size={14} className="text-gray-400" />
+                                  {new Date(date).toLocaleDateString()}
+                              </div>
+                              <div className="divide-y">
+                                  {attendanceByDate[date].map(record => (
+                                      <div key={record.id} className="px-4 py-3 flex items-center justify-between">
+                                          <div>
+                                              <div className="font-bold text-gray-800 text-sm">{record.courseCode}</div>
+                                          </div>
+                                          <div>
+                                              {record.status === 'Present' ? (
+                                                  <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">
+                                                      <CheckCircle size={12} /> Present
+                                                  </span>
+                                              ) : (
+                                                  <span className="flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">
+                                                      <XCircle size={12} /> Absent
+                                                  </span>
+                                              )}
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )) : (
+                          <div className="text-center p-8 text-gray-400">No daily records found.</div>
+                      )}
+                  </div>
+                  <div className="p-4 border-t text-right bg-white">
+                      <button onClick={() => setShowAttendanceModal(false)} className="bg-gray-800 text-white px-4 py-2 rounded text-sm">Close</button>
+                  </div>
+              </div>
+          </div>
       )}
     </div>
   );

@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Role, User, Student, ChangeRequest, Department, StaffProfile, INITIAL_STUDENTS, INITIAL_DEPARTMENTS, INITIAL_STAFF } from './types';
+import { Role, User, Student, ChangeRequest, Department, StaffProfile, ParentProfile, INITIAL_STUDENTS, INITIAL_DEPARTMENTS, INITIAL_STAFF, INITIAL_PARENTS } from './types';
 import { Auth } from './components/Auth';
 import { Admin1Dashboard } from './components/Admin1Dashboard';
 import { Admin2Dashboard } from './components/Admin2Dashboard';
 import { StaffDashboard } from './components/StaffDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
+import { ParentDashboard } from './components/ParentDashboard';
 import { LogOut, UserCircle, GraduationCap, ArrowRight } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -17,28 +18,33 @@ const App: React.FC = () => {
   const [requests, setRequests] = useState<ChangeRequest[]>([]);
   const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
   const [staffList, setStaffList] = useState<StaffProfile[]>(INITIAL_STAFF);
+  const [parentList, setParentList] = useState<ParentProfile[]>(INITIAL_PARENTS);
 
   // Persist to local storage
   useEffect(() => {
-    const savedStudents = localStorage.getItem('edusphere_students');
+    const savedStudents = localStorage.getItem('edusphere_students_v2');
     if (savedStudents) setStudents(JSON.parse(savedStudents));
     
-    const savedReqs = localStorage.getItem('edusphere_requests');
+    const savedReqs = localStorage.getItem('edusphere_requests_v2');
     if (savedReqs) setRequests(JSON.parse(savedReqs));
 
-    const savedDepts = localStorage.getItem('edusphere_departments');
+    const savedDepts = localStorage.getItem('edusphere_departments_v2');
     if (savedDepts) setDepartments(JSON.parse(savedDepts));
 
-    const savedStaff = localStorage.getItem('edusphere_staff');
+    const savedStaff = localStorage.getItem('edusphere_staff_v2');
     if (savedStaff) setStaffList(JSON.parse(savedStaff));
+
+    const savedParents = localStorage.getItem('edusphere_parents_v2');
+    if (savedParents) setParentList(JSON.parse(savedParents));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('edusphere_students', JSON.stringify(students));
-    localStorage.setItem('edusphere_requests', JSON.stringify(requests));
-    localStorage.setItem('edusphere_departments', JSON.stringify(departments));
-    localStorage.setItem('edusphere_staff', JSON.stringify(staffList));
-  }, [students, requests, departments, staffList]);
+    localStorage.setItem('edusphere_students_v2', JSON.stringify(students));
+    localStorage.setItem('edusphere_requests_v2', JSON.stringify(requests));
+    localStorage.setItem('edusphere_departments_v2', JSON.stringify(departments));
+    localStorage.setItem('edusphere_staff_v2', JSON.stringify(staffList));
+    localStorage.setItem('edusphere_parents_v2', JSON.stringify(parentList));
+  }, [students, requests, departments, staffList, parentList]);
 
   const handleLogout = () => {
     setUser(null);
@@ -53,6 +59,11 @@ const App: React.FC = () => {
   // Get Current Staff for Staff View (Also handles HOD logic)
   const currentStaff = (user?.role === Role.STAFF || user?.role === Role.HOD)
       ? staffList.find(s => s.id === user.id)
+      : undefined;
+
+  // Get Child Student for Parent View
+  const parentStudent = user?.role === Role.PARENT && user.studentId
+      ? students.find(s => s.id === user.studentId)
       : undefined;
 
   if (showLanding) {
@@ -96,7 +107,7 @@ const App: React.FC = () => {
   }
 
   if (!user) {
-    return <Auth onLogin={setUser} students={students} staffList={staffList} />;
+    return <Auth onLogin={setUser} students={students} staffList={staffList} parentList={parentList} />;
   }
 
   return (
@@ -114,7 +125,8 @@ const App: React.FC = () => {
                 {user.role === Role.ADMIN1 ? 'Admin I' : 
                  user.role === Role.ADMIN2 ? 'Admin II' : 
                  user.role === Role.HOD ? 'HOD Portal' :
-                 user.role === Role.STAFF ? 'Staff Portal' : 'Student Portal'}
+                 user.role === Role.STAFF ? 'Staff Portal' : 
+                 user.role === Role.PARENT ? 'Parent Portal' : 'Student Portal'}
               </span>
             </div>
             <div className="flex items-center space-x-4">
@@ -123,6 +135,7 @@ const App: React.FC = () => {
                 <div className="flex flex-col items-end leading-tight">
                     <span className="text-sm font-medium">{user.name}</span>
                     {user.department && <span className="text-xs text-gray-400">{user.department} {user.isHod ? '(Head)' : ''}</span>}
+                    {user.role === Role.PARENT && <span className="text-xs text-gray-400">Parent</span>}
                 </div>
               </div>
               <button 
@@ -149,6 +162,8 @@ const App: React.FC = () => {
             setStaffList={setStaffList}
             requests={requests}
             setRequests={setRequests}
+            parentList={parentList}
+            setParentList={setParentList}
           />
         )}
         
@@ -158,6 +173,8 @@ const App: React.FC = () => {
             setStudents={setStudents}
             requests={requests}
             setRequests={setRequests}
+            staffList={staffList}
+            setStaffList={setStaffList}
           />
         )}
         
@@ -167,6 +184,8 @@ const App: React.FC = () => {
             setStudents={setStudents}
             departments={departments}
             currentUser={currentStaff}
+            setStaffList={setStaffList}
+            staffList={staffList}
           />
         )}
         
@@ -177,6 +196,16 @@ const App: React.FC = () => {
             setRequests={setRequests}
             staffList={staffList}
           />
+        )}
+
+        {user.role === Role.PARENT && parentStudent && (
+           <ParentDashboard student={parentStudent} />
+        )}
+        {user.role === Role.PARENT && !parentStudent && (
+            <div className="text-center p-20 text-gray-500">
+                <h2 className="text-2xl font-bold mb-2">No Student Linked</h2>
+                <p>Your account is not currently linked to a valid student record. Please contact administration.</p>
+            </div>
         )}
       </main>
     </div>

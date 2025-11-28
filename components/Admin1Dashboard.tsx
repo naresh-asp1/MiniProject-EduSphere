@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { Student, Department, StaffProfile, ChangeRequest, DEFAULT_CREDS } from '../types';
-import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key, UserPlus, Briefcase } from 'lucide-react';
+import { Student, Department, StaffProfile, ChangeRequest, ParentProfile, DEFAULT_CREDS } from '../types';
+import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key, UserPlus, Briefcase, User } from 'lucide-react';
 
 interface Admin1Props {
   students: Student[];
@@ -12,6 +12,8 @@ interface Admin1Props {
   setStaffList: React.Dispatch<React.SetStateAction<StaffProfile[]>>;
   requests: ChangeRequest[];
   setRequests: React.Dispatch<React.SetStateAction<ChangeRequest[]>>;
+  parentList: ParentProfile[];
+  setParentList: React.Dispatch<React.SetStateAction<ParentProfile[]>>;
 }
 
 const EMPTY_STUDENT: Student = {
@@ -33,16 +35,18 @@ const EMPTY_STUDENT: Student = {
   performanceReport: '',
   batch: new Date().getFullYear(),
   currentSemester: 1,
-  tutorId: ''
+  tutorId: '',
+  parentId: ''
 };
 
 export const Admin1Dashboard: React.FC<Admin1Props> = ({ 
   students, setStudents, 
   departments, setDepartments,
   staffList, setStaffList,
-  requests, setRequests
+  requests, setRequests,
+  parentList, setParentList
 }) => {
-  const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'departments' | 'requests'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'parents' | 'departments' | 'requests'>('students');
   const [isEditing, setIsEditing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showCreds, setShowCreds] = useState(false);
@@ -55,8 +59,10 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   const [deptName, setDeptName] = useState('');
   
   // Staff State
-  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '', allocatedSubjects: [], isHod: false });
-  const [staffSubjectsInput, setStaffSubjectsInput] = useState('');
+  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '', allocatedSubjects: [], isHod: false, allocationStatus: 'pending' });
+
+  // Parent State
+  const [currentParent, setCurrentParent] = useState<ParentProfile>({ id: '', name: '', email: '', studentId: '', contactNumber: '' });
 
   // --- CSV IMPORT HANDLER ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,7 +100,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                 address: 'Imported via Bulk Upload',
                 batch: batch,
                 currentSemester: 1,
-                tutorId: ''
+                tutorId: '',
+                parentId: ''
             };
         }).filter((s): s is Student => s !== null);
 
@@ -136,8 +143,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
       const newStudents = [...students];
 
       Object.keys(byDept).forEach(dept => {
-          const deptStaff = staffList.filter(st => st.department === dept && !st.isHod); // Prefer non-HOD for tutorship? Let's allow all, but filter usually helps load balancing.
-          const targetStaff = deptStaff.length > 0 ? deptStaff : staffList.filter(st => st.department === dept); // Fallback to include HOD if only HOD exists
+          const deptStaff = staffList.filter(st => st.department === dept && !st.isHod); 
+          const targetStaff = deptStaff.length > 0 ? deptStaff : staffList.filter(st => st.department === dept); 
           
           if(targetStaff.length === 0) return; 
 
@@ -208,11 +215,11 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
       const staffToSave = {
           ...currentStaff,
           id: finalId,
-          allocatedSubjects: staffSubjectsInput.split(',').map(s => s.trim()).filter(s => s.length > 0)
+          allocatedSubjects: isEditing ? currentStaff.allocatedSubjects : []
       };
 
       if (isEditing) {
-          setStaffList(prev => prev.map(s => s.email === currentStaff.email ? staffToSave : s)); // Use email to match to avoid ID change issues
+          setStaffList(prev => prev.map(s => s.email === currentStaff.email ? staffToSave : s)); 
       } else {
           setStaffList(prev => [...prev, staffToSave]);
       }
@@ -221,17 +228,66 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
 
   const initStaffEdit = (staff: StaffProfile) => {
       setCurrentStaff(staff);
-      setStaffSubjectsInput(staff.allocatedSubjects.join(', '));
       setIsEditing(true);
       setShowForm(true);
   };
 
   const initStaffAdd = () => {
-      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', department: departments[0]?.id || '', allocatedSubjects: [], isHod: false });
-      setStaffSubjectsInput('');
+      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', department: departments[0]?.id || '', allocatedSubjects: [], isHod: false, allocationStatus: 'pending' });
       setIsEditing(false);
       setShowForm(true);
   };
+
+  // --- PARENT HANDLERS ---
+  const handleParentSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+
+      if (isEditing) {
+          // 1. Update Parent List
+          setParentList(prev => prev.map(p => p.id === currentParent.id ? currentParent : p));
+          
+          // 2. Handle Student Link Update (Remove from old student, add to new student)
+          const originalParent = parentList.find(p => p.id === currentParent.id);
+          if (originalParent) {
+              const oldStudentId = originalParent.studentId;
+              const newStudentId = currentParent.studentId;
+
+              if (oldStudentId !== newStudentId) {
+                  setStudents(prev => prev.map(s => {
+                      // Unlink old student
+                      if (s.id === oldStudentId) return { ...s, parentId: undefined };
+                      // Link new student
+                      if (s.id === newStudentId) return { ...s, parentId: currentParent.id };
+                      return s;
+                  }));
+              } else if (newStudentId) {
+                  // Ensure current student has the link (idempotent)
+                   setStudents(prev => prev.map(s => s.id === newStudentId ? { ...s, parentId: currentParent.id } : s));
+              }
+          }
+      } else {
+          // 1. Add to Parent List
+          setParentList(prev => [...prev, currentParent]);
+          // 2. Link Student
+          if (currentParent.studentId) {
+             setStudents(prev => prev.map(s => s.id === currentParent.studentId ? { ...s, parentId: currentParent.id } : s));
+          }
+      }
+      setShowForm(false);
+  };
+
+  const initParentAdd = () => {
+      setCurrentParent({ id: `P${Math.floor(Math.random() * 10000)}`, name: '', email: '', studentId: '', contactNumber: '' });
+      setIsEditing(false);
+      setShowForm(true);
+  };
+
+  const initParentEdit = (parent: ParentProfile) => {
+      setCurrentParent(parent);
+      setIsEditing(true);
+      setShowForm(true);
+  };
+
 
   // --- REQUEST HANDLERS ---
   const executeRequest = (req: ChangeRequest) => {
@@ -263,17 +319,20 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
              <button onClick={() => setShowCreds(true)} className="bg-white border border-gray-300 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium">
                 <Key size={16} /> Credentials Guide
             </button>
-            <div className="flex bg-white p-1 rounded-lg shadow-sm border border-gray-200">
-                <button onClick={() => setActiveTab('students')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'students' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+            <div className="flex bg-white p-1 rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <button onClick={() => setActiveTab('students')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'students' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
                     <Users size={16} /> Students
                 </button>
-                <button onClick={() => setActiveTab('staff')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'staff' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                <button onClick={() => setActiveTab('staff')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'staff' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
                     <UserCog size={16} /> Staff
                 </button>
-                <button onClick={() => setActiveTab('departments')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'departments' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                <button onClick={() => setActiveTab('parents')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'parents' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                    <User size={16} /> Parents
+                </button>
+                <button onClick={() => setActiveTab('departments')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'departments' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
                     <Building2 size={16} /> Depts
                 </button>
-                <button onClick={() => setActiveTab('requests')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${activeTab === 'requests' ? 'bg-amber-100 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                <button onClick={() => setActiveTab('requests')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'requests' ? 'bg-amber-100 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}>
                     <GitPullRequestArrow size={16} /> Requests
                 </button>
             </div>
@@ -310,6 +369,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                 <th className="p-4">Email</th>
                                 <th className="p-4">Department</th>
                                 <th className="p-4">Tutor Status</th>
+                                <th className="p-4">Parent Status</th>
                                 <th className="p-4">Actions</th>
                             </tr>
                         </thead>
@@ -326,6 +386,11 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                         ) : (
                                             <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-xs font-bold border border-red-200">Unassigned</span>
                                         )}
+                                    </td>
+                                    <td className="p-4">
+                                        {parentList.find(p => p.studentId === s.id) ? (
+                                            <span className="text-green-600 text-xs font-bold">Linked</span>
+                                        ) : <span className="text-gray-400 text-xs">No Parent</span>}
                                     </td>
                                     <td className="p-4">
                                         <button onClick={() => initStudentEdit(s)} className="text-blue-600 hover:underline mr-3">Edit</button>
@@ -454,7 +519,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                     <div className="flex flex-wrap gap-1">
                                         {s.allocatedSubjects && s.allocatedSubjects.length > 0 
                                             ? s.allocatedSubjects.map(sub => <span key={sub} className="bg-gray-100 px-2 py-0.5 rounded text-xs border border-gray-200">{sub}</span>)
-                                            : <span className="text-gray-400 italic text-xs">None</span>
+                                            : <span className="text-gray-400 italic text-xs">Unassigned</span>
                                         }
                                     </div>
                                 </td>
@@ -497,14 +562,85 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                 </div>
                             </div>
                             
+                            <div className="flex justify-end gap-2 mt-4">
+                                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+          </>
+      )}
+
+      {/* 3. PARENTS TAB */}
+      {activeTab === 'parents' && (
+          <>
+             <div className="flex justify-end mb-4">
+                <button onClick={initParentAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"><Plus size={16} /> Add Parent</button>
+            </div>
+            <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 border-b">
+                        <tr>
+                            <th className="p-4">Name</th>
+                            <th className="p-4">Email</th>
+                            <th className="p-4">Contact</th>
+                            <th className="p-4">Child (Student)</th>
+                            <th className="p-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {parentList.map(p => {
+                            const child = students.find(s => s.id === p.studentId);
+                            return (
+                                <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
+                                    <td className="p-4 font-medium">{p.name}</td>
+                                    <td className="p-4 text-gray-500">{p.email}</td>
+                                    <td className="p-4">{p.contactNumber}</td>
+                                    <td className="p-4">
+                                        {child ? (
+                                            <div>
+                                                <div className="font-bold text-indigo-600">{child.name}</div>
+                                                <div className="text-xs text-gray-400 font-mono">{child.id}</div>
+                                            </div>
+                                        ) : <span className="text-red-500 italic">Not Linked</span>}
+                                    </td>
+                                    <td className="p-4 flex gap-2">
+                                        <button onClick={() => initParentEdit(p)} className="text-blue-600 hover:underline">Edit</button>
+                                        <button onClick={() => setParentList(prev => prev.filter(pr => pr.id !== p.id))} className="text-red-600 hover:underline">Delete</button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {parentList.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-400">No parents added.</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* PARENT FORM MODAL */}
+            {showForm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-xl w-full max-w-lg">
+                        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Parent' : 'Add Parent'}</h2>
+                        <form onSubmit={handleParentSubmit} className="space-y-3">
+                            <input placeholder="Parent Name" required className="w-full border p-2 rounded" value={currentParent.name} onChange={e => setCurrentParent({...currentParent, name: e.target.value})} />
+                            <input placeholder="Email Address" type="email" required className="w-full border p-2 rounded" value={currentParent.email} onChange={e => setCurrentParent({...currentParent, email: e.target.value})} />
+                            <input placeholder="Contact Number" required className="w-full border p-2 rounded" value={currentParent.contactNumber} onChange={e => setCurrentParent({...currentParent, contactNumber: e.target.value})} />
+                            
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Allocated Subjects (Course Codes)</label>
-                                <input 
-                                    placeholder="e.g. CS3301, MA3151 (comma separated)" 
-                                    className="w-full border p-2 rounded font-mono text-sm" 
-                                    value={staffSubjectsInput}
-                                    onChange={e => setStaffSubjectsInput(e.target.value)} 
-                                />
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Select Child (Student)</label>
+                                <select 
+                                    required 
+                                    className="w-full border p-2 rounded max-h-40" 
+                                    value={currentParent.studentId} 
+                                    onChange={e => setCurrentParent({...currentParent, studentId: e.target.value})}
+                                >
+                                    <option value="">-- Select Student --</option>
+                                    {[...students].sort((a,b) => a.name.localeCompare(b.name)).map(s => (
+                                        <option key={s.id} value={s.id}>{s.name} ({s.id}) - {s.department}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="flex justify-end gap-2 mt-4">
@@ -518,7 +654,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
           </>
       )}
 
-      {/* 3. DEPARTMENTS TAB */}
+      {/* 4. DEPARTMENTS TAB */}
       {activeTab === 'departments' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow border border-gray-200">
@@ -549,7 +685,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
           </div>
       )}
 
-      {/* 4. REQUESTS TAB */}
+      {/* 5. REQUESTS TAB */}
       {activeTab === 'requests' && (
           <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
               <div className="p-4 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
@@ -603,13 +739,14 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                   
                   <div className="space-y-6">
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                          <h3 className="font-bold text-blue-900 mb-2">Student & Staff Login Policy</h3>
+                          <h3 className="font-bold text-blue-900 mb-2">Student, Parent & Staff Login Policy</h3>
                           <p className="text-sm text-blue-800 mb-2">
                               Login uses <strong>Email Address</strong> as Username.
                           </p>
                           <ul className="list-disc list-inside text-sm text-blue-800 font-mono">
                               <li>Student Password: <strong>{DEFAULT_CREDS.STUDENT_PASS}</strong></li>
                               <li>Staff/HOD Password: <strong>{DEFAULT_CREDS.STAFF_PASS}</strong></li>
+                              <li>Parent Password: <strong>{DEFAULT_CREDS.PARENT_PASS}</strong></li>
                           </ul>
                       </div>
 

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { User, Role, Student, StaffProfile, DEFAULT_CREDS } from '../types';
-import { UserCheck, Shield, GraduationCap, BookOpen, Info, Users, X } from 'lucide-react';
+import { User, Role, Student, StaffProfile, ParentProfile, DEFAULT_CREDS } from '../types';
+import { UserCheck, Shield, GraduationCap, BookOpen, Info, Users, X, User as UserIcon, Lock, CheckCircle, Mail, ExternalLink } from 'lucide-react';
 
 interface AuthProps {
   onLogin: (user: User) => void;
   students: Student[];
   staffList: StaffProfile[];
+  parentList: ParentProfile[];
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
+export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parentList }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState(''); 
@@ -18,7 +19,12 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
 
   // Demo User List State
   const [showUserList, setShowUserList] = useState(false);
-  const [activeListTab, setActiveListTab] = useState<'staff' | 'students'>('staff');
+  const [activeListTab, setActiveListTab] = useState<'staff' | 'students' | 'parents'>('staff');
+
+  // Forgot Password State
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetStatus, setResetStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +68,19 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
         } else {
           setError('Invalid Student email or password.');
         }
+      } else if (role === Role.PARENT) {
+        const parent = parentList.find(p => p.email === username);
+        if (parent && password === DEFAULT_CREDS.PARENT_PASS) {
+            onLogin({ 
+                id: parent.id, 
+                username, 
+                name: parent.name, 
+                role, 
+                studentId: parent.studentId 
+            });
+        } else {
+            setError('Invalid Parent email or password.');
+        }
       }
     } else {
       // Registration Simulation
@@ -73,6 +92,24 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
       };
       onLogin(newUser);
     }
+  };
+
+  const handleForgotPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) return;
+    
+    setResetStatus('sending');
+    // Simulate API call
+    setTimeout(() => {
+        setResetStatus('sent');
+        console.log(`[Email Service Simulation] Password reset link sent to: ${resetEmail}`);
+    }, 1500);
+  };
+
+  const closeResetModal = () => {
+    setShowForgotPassword(false);
+    setResetStatus('idle');
+    setResetEmail('');
   };
 
   return (
@@ -111,6 +148,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
                <strong>Default Credentials (Demo):</strong><br/>
                Admin I: {DEFAULT_CREDS.ADMIN1.user} / {DEFAULT_CREDS.ADMIN1.pass}<br/>
                Staff/HOD: [Email] / {DEFAULT_CREDS.STAFF_PASS}<br/>
+               Parent: [Email] / {DEFAULT_CREDS.PARENT_PASS}<br/>
              </div>
           </div>
 
@@ -137,14 +175,14 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
             )}
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{role === Role.STAFF || role === Role.STUDENT ? 'Email Address' : 'Username'}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{role === Role.ADMIN1 || role === Role.ADMIN2 ? 'Username' : 'Email Address'}</label>
               <input
                 type="text"
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={role === Role.STAFF || role === Role.STUDENT ? 'email@edusphere.edu' : 'username'}
+                placeholder={role === Role.ADMIN1 ? 'admin1' : 'email@edusphere.edu'}
               />
             </div>
 
@@ -160,20 +198,33 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
               />
             </div>
 
+            {isLogin && (
+                <div className="flex justify-end">
+                    <button 
+                        type="button" 
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-sm text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
+                    >
+                        Forgot Password?
+                    </button>
+                </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Role</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { r: Role.ADMIN1, label: 'Admin I', icon: <Shield size={14} /> },
                   { r: Role.ADMIN2, label: 'Admin II', icon: <UserCheck size={14} /> },
-                  { r: Role.STAFF, label: 'Staff / HOD', icon: <BookOpen size={14} /> },
-                  { r: Role.STUDENT, label: 'Student', icon: <GraduationCap size={14} /> }
+                  { r: Role.STAFF, label: 'Staff/HOD', icon: <BookOpen size={14} /> },
+                  { r: Role.STUDENT, label: 'Student', icon: <GraduationCap size={14} /> },
+                  { r: Role.PARENT, label: 'Parent', icon: <UserIcon size={14} /> }
                 ].map((item) => (
                   <button
                     key={item.r}
                     type="button"
                     onClick={() => { setRole(item.r); setError(''); }}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                    className={`flex items-center justify-center gap-1.5 px-1 py-2 text-xs font-medium rounded-lg border transition-colors ${
                       role === item.r 
                         ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' 
                         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -210,13 +261,19 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
                   onClick={() => setActiveListTab('staff')}
                   className={`flex-1 py-3 font-medium text-sm ${activeListTab === 'staff' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
-                    Staff & HOD List (Password: {DEFAULT_CREDS.STAFF_PASS})
+                    Staff & HOD
                 </button>
                 <button 
                   onClick={() => setActiveListTab('students')}
                   className={`flex-1 py-3 font-medium text-sm ${activeListTab === 'students' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
-                    Student List (Password: {DEFAULT_CREDS.STUDENT_PASS})
+                    Students
+                </button>
+                <button 
+                  onClick={() => setActiveListTab('parents')}
+                  className={`flex-1 py-3 font-medium text-sm ${activeListTab === 'parents' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    Parents
                 </button>
             </div>
 
@@ -226,28 +283,34 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
                         <tr>
                             <th className="p-4">Name</th>
                             <th className="p-4">Email (Username)</th>
-                            <th className="p-4">Department</th>
-                            {activeListTab === 'staff' && <th className="p-4">Role</th>}
+                            <th className="p-4">Linked Info</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {activeListTab === 'staff' ? (
+                        {activeListTab === 'staff' && (
                             staffList.map(s => (
                                 <tr key={s.id} className={s.isHod ? "bg-indigo-50 hover:bg-indigo-100" : "hover:bg-gray-50"}>
-                                    <td className="p-4">{s.name}</td>
+                                    <td className="p-4">{s.name} <span className="text-xs text-gray-400 ml-1">({s.isHod ? 'HOD' : 'Staff'})</span></td>
                                     <td className="p-4 font-mono text-indigo-600 select-all">{s.email}</td>
                                     <td className="p-4">{s.department}</td>
-                                    <td className="p-4">
-                                        {s.isHod ? <span className="bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded text-xs font-bold">HOD</span> : 'Staff'}
-                                    </td>
                                 </tr>
                             ))
-                        ) : (
-                            students.map(s => (
+                        )}
+                        {activeListTab === 'students' && (
+                            students.slice(0, 50).map(s => (
                                 <tr key={s.id} className="hover:bg-gray-50">
                                     <td className="p-4">{s.name}</td>
                                     <td className="p-4 font-mono text-indigo-600 select-all">{s.email}</td>
-                                    <td className="p-4">{s.department}</td>
+                                    <td className="p-4">{s.department} - {s.grade}</td>
+                                </tr>
+                            ))
+                        )}
+                         {activeListTab === 'parents' && (
+                            parentList.map(p => (
+                                <tr key={p.id} className="hover:bg-gray-50">
+                                    <td className="p-4">{p.name}</td>
+                                    <td className="p-4 font-mono text-indigo-600 select-all">{p.email}</td>
+                                    <td className="p-4">Child: {students.find(s => s.id === p.studentId)?.name || p.studentId}</td>
                                 </tr>
                             ))
                         )}
@@ -260,6 +323,99 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* FORGOT PASSWORD MODAL */}
+      {showForgotPassword && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl relative">
+                  <button onClick={closeResetModal} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                      <X size={20} />
+                  </button>
+                  
+                  {resetStatus === 'sent' ? (
+                      <div className="text-center">
+                          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <CheckCircle size={32} />
+                          </div>
+                          <h2 className="text-2xl font-bold text-gray-800">Check Your Email</h2>
+                          <p className="text-sm text-gray-500 mt-2 mb-6">
+                              We've sent a password reset link to <br/>
+                              <span className="font-semibold text-gray-700">{resetEmail}</span>
+                          </p>
+
+                          {/* SIMULATED EMAIL INBOX */}
+                          <div className="bg-gray-100 rounded-lg border border-gray-200 p-4 mb-6 text-left shadow-inner">
+                              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200">
+                                  <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                                  <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                                  <span className="text-[10px] text-gray-500 ml-auto font-mono">Simulated Inbox</span>
+                              </div>
+                              <div className="text-xs space-y-1 mb-3">
+                                  <div className="text-gray-500"><span className="font-bold">From:</span> support@edusphere.edu</div>
+                                  <div className="text-gray-500"><span className="font-bold">Subject:</span> Reset Your Password</div>
+                              </div>
+                              <div className="bg-white p-3 rounded border border-gray-200 text-sm">
+                                  <p className="mb-2">Hello,</p>
+                                  <p className="mb-2">Click below to reset:</p>
+                                  <a href="#" className="text-blue-600 underline text-xs font-mono break-all flex items-center gap-1">
+                                      https://edusphere.edu/reset?token=abc12345
+                                      <ExternalLink size={10}/>
+                                  </a>
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-2 text-center italic">
+                                  (This is a simulation. No real email was sent.)
+                              </p>
+                          </div>
+
+                          <button onClick={closeResetModal} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow">
+                              Return to Login
+                          </button>
+                      </div>
+                  ) : (
+                      <>
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Lock size={32} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-800">Reset Password</h2>
+                            <p className="text-sm text-gray-500 mt-2">Enter your registered email address and we'll send you a link to reset your password.</p>
+                        </div>
+                        
+                        <form onSubmit={handleForgotPassword} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Email Address</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-3 text-gray-400" size={16}/>
+                                    <input 
+                                        type="email" 
+                                        required 
+                                        className="w-full border p-3 pl-10 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                        placeholder="you@edusphere.edu"
+                                        value={resetEmail}
+                                        onChange={e => setResetEmail(e.target.value)}
+                                        disabled={resetStatus === 'sending'}
+                                    />
+                                </div>
+                            </div>
+                            <button 
+                                type="submit" 
+                                disabled={resetStatus === 'sending'}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold py-3 rounded-lg transition-colors shadow flex items-center justify-center gap-2"
+                            >
+                                {resetStatus === 'sending' ? 'Sending...' : 'Send Reset Link'}
+                            </button>
+                        </form>
+                        <div className="mt-6 text-center">
+                            <button onClick={closeResetModal} className="text-sm text-gray-500 hover:text-gray-700 font-medium flex items-center justify-center gap-1 mx-auto">
+                                Back to Login
+                            </button>
+                        </div>
+                      </>
+                  )}
+              </div>
+          </div>
       )}
     </div>
   );
