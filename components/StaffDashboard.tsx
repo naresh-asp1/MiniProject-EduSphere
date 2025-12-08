@@ -1,6 +1,8 @@
+
+
 import React, { useState } from 'react';
 import { Student, Department, AttendanceRecord, StaffProfile, CURRICULUM, getSubjectsForSem } from '../types';
-import { Edit3, Sparkles, Calendar, BookOpen, AlertTriangle, FileText, Search, Filter, CheckSquare, Users, UserCheck, UserPlus, X, Mail, Phone, MapPin, Briefcase, Library, Globe, Lock, UserCog, Download } from 'lucide-react';
+import { Edit3, Sparkles, Calendar, BookOpen, AlertTriangle, FileText, Search, Filter, CheckSquare, Users, UserCheck, UserPlus, X, Mail, Phone, MapPin, Briefcase, Library, Globe, Lock, UserCog, Download, User } from 'lucide-react';
 import { generateStudentReport } from '../services/geminiService';
 import { generateStudentPDF } from '../services/pdfService';
 
@@ -411,8 +413,18 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                 <div className="overflow-y-auto flex-1">
                     {filteredStudents.length > 0 ? filteredStudents.map(s => (
                         <button key={s.id} onClick={() => setSelectedStudentId(s.id)} className={`w-full text-left p-4 border-b border-gray-50 hover:bg-indigo-50 transition-colors relative ${selectedStudentId === s.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}>
-                            <div className="flex justify-between items-start"><div className="font-medium text-gray-900">{s.name}</div>{s.tutorId === currentUser?.id && <UserCheck size={14} className="text-green-600" />}</div>
-                            <div className="text-xs text-gray-500 font-mono">{s.id}</div>
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-2">
+                                     {s.photo ? (
+                                         <img src={s.photo} className="w-8 h-8 rounded-full object-cover border"/>
+                                     ) : (
+                                         <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"><User size={14} className="text-gray-400"/></div>
+                                     )}
+                                     <div className="font-medium text-gray-900">{s.name}</div>
+                                </div>
+                                {s.tutorId === currentUser?.id && <UserCheck size={14} className="text-green-600" />}
+                            </div>
+                            <div className="text-xs text-gray-500 font-mono mt-1 ml-10">{s.id}</div>
                         </button>
                     )) : <div className="p-4 text-center text-gray-400 text-xs">No students found.</div>}
                 </div>
@@ -422,7 +434,17 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                 {student ? (
                 <div className="space-y-8">
                     <div className="flex justify-between items-start border-b pb-4">
-                        <div><h2 className="text-2xl font-bold text-gray-800">{student.name}</h2><p className="text-gray-500 text-sm">{student.id} • {student.department} • {student.grade}</p></div>
+                        <div className="flex items-center gap-4">
+                            {student.photo ? (
+                                <img src={student.photo} className="w-16 h-16 rounded-full object-cover border-2 border-indigo-100 shadow-sm" />
+                            ) : (
+                                <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-300"><User size={32}/></div>
+                            )}
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">{student.name}</h2>
+                                <p className="text-gray-500 text-sm">{student.id} • {student.department} • {student.grade}</p>
+                            </div>
+                        </div>
                         <div className="text-right flex flex-col items-end">
                             {student.tutorId === currentUser?.id && <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold mb-1">My Mentee</div>}
                             {isHod && (
@@ -508,15 +530,18 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                                       onClick={() => setSelectedStaffForAllocation(s)}
                                       className={`w-full text-left p-4 border-b border-gray-50 hover:bg-purple-50 transition-colors ${selectedStaffForAllocation?.id === s.id ? 'bg-purple-100 border-l-4 border-l-purple-600' : ''}`}
                                   >
-                                      <div className="font-medium text-gray-900">{s.name}</div>
-                                      <div className="flex justify-between text-xs mt-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                            {s.photo ? <img src={s.photo} className="w-6 h-6 rounded-full border"/> : <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center"><User size={12}/></div>}
+                                            <div className="font-medium text-gray-900">{s.name}</div>
+                                      </div>
+                                      <div className="flex justify-between text-xs mt-1 ml-8">
                                           <span className="font-mono text-gray-500">{s.id}</span>
                                           {s.allocationStatus === 'pending' && <span className="text-amber-600 font-bold">Pending Verify</span>}
                                           {s.allocationStatus === 'rejected' && <span className="text-red-600 font-bold">Rejected</span>}
                                           {s.allocationStatus === 'verified' && <span className="text-green-600 font-bold">Verified</span>}
                                       </div>
                                       {!ruleCheck.isValid && (
-                                          <div className="mt-1 flex gap-1">
+                                          <div className="mt-1 flex gap-1 ml-8">
                                               {!ruleCheck.hasPrimary && <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded">Missing Primary</span>}
                                               {!ruleCheck.hasCross && <span className="text-[10px] bg-orange-100 text-orange-700 px-1 rounded">Missing Cross-Dept</span>}
                                           </div>
@@ -609,7 +634,10 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                                 {students.filter(s => s.department === staffDept).map(s => (
                                     <tr key={s.id} className="hover:bg-gray-50">
                                         <td className="p-4 font-mono text-gray-600">{s.id}</td>
-                                        <td className="p-4 font-medium">{s.name}</td>
+                                        <td className="p-4 font-medium flex items-center gap-2">
+                                            {s.photo ? <img src={s.photo} className="w-6 h-6 rounded-full border"/> : <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center"><User size={12}/></div>}
+                                            {s.name}
+                                        </td>
                                         <td className="p-4 text-xs">{s.grade}</td>
                                         <td className="p-4">
                                             <select 
@@ -649,7 +677,10 @@ export const StaffDashboard: React.FC<StaffProps> = ({ students, setStudents, de
                     {unassignedStudents.length > 0 ? (
                         unassignedStudents.map(s => (
                             <div key={s.id} className="p-3 border-b hover:bg-gray-50 flex justify-between items-center">
-                                <div><p className="font-medium text-sm">{s.name}</p><p className="text-xs text-gray-500 font-mono">{s.id}</p></div>
+                                <div className="flex items-center gap-2">
+                                     {s.photo ? <img src={s.photo} className="w-8 h-8 rounded-full border"/> : <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center"><User size={14}/></div>}
+                                     <div><p className="font-medium text-sm">{s.name}</p><p className="text-xs text-gray-500 font-mono">{s.id}</p></div>
+                                </div>
                                 <button onClick={() => claimMentee(s.id)} className="bg-white border border-green-500 text-green-600 hover:bg-green-50 text-xs px-3 py-1 rounded-full flex items-center gap-1 font-medium transition-colors"><UserPlus size={12} /> Add</button>
                             </div>
                         ))

@@ -1,4 +1,5 @@
 
+
 export enum Role {
   ADMIN1 = 'admin1',
   ADMIN2 = 'admin2',
@@ -46,6 +47,7 @@ export interface Student {
   id: string; // Roll No
   name: string;
   email: string;
+  photo?: string; // Base64 Image URL
   dob: string;
   batch: number; 
   currentSemester: number; 
@@ -74,6 +76,7 @@ export interface StaffProfile {
   id: string;
   name: string;
   email: string;
+  photo?: string; // Base64 Image URL
   department: string;
   allocatedSubjects: string[]; // Course Codes
   allocationStatus: 'pending' | 'verified' | 'rejected'; // Admin 2 Verification Status
@@ -211,6 +214,32 @@ export const CURRICULUM: Record<string, Record<number, SubjectDef[]>> = {
     8: [
       { code: 'EC3801', name: 'Project Work', credits: 10 }
     ]
+  },
+  'MCA': {
+    1: [
+      { code: 'MC4101', name: 'Advanced Data Structures', credits: 3 },
+      { code: 'MC4102', name: 'Database Technologies', credits: 3 },
+      { code: 'MC4103', name: 'Cloud Computing Technologies', credits: 3 },
+      { code: 'MC4104', name: 'Artificial Intelligence', credits: 3 },
+      { code: 'RM4151', name: 'Research Methodology', credits: 2 }
+    ],
+    2: [
+      { code: 'MC4201', name: 'Full Stack Web Development', credits: 4 },
+      { code: 'MC4202', name: 'Advanced Java Programming', credits: 3 },
+      { code: 'MC4203', name: 'Mobile Application Development', credits: 3 },
+      { code: 'MC4204', name: 'Internet of Things', credits: 3 },
+      { code: 'MC4205', name: 'Cyber Security', credits: 3 }
+    ],
+    3: [
+      { code: 'MC4301', name: 'Machine Learning', credits: 3 },
+      { code: 'MC4302', name: 'Big Data Analytics', credits: 3 },
+      { code: 'MC4303', name: 'Software Project Management', credits: 3 },
+      { code: 'MC4304', name: 'Professional Ethics', credits: 3 },
+      { code: 'MC4305', name: 'Deep Learning', credits: 3 }
+    ],
+    4: [
+      { code: 'MC4401', name: 'Project Work', credits: 12 }
+    ]
   }
 };
 
@@ -243,7 +272,8 @@ export const INITIAL_DEPARTMENTS: Department[] = [
   { id: 'EEE', name: 'Electrical & Electronics' },
   { id: 'BME', name: 'Biomedical Engineering' },
   { id: 'CHEM', name: 'Chemical Engineering' },
-  { id: 'MBA', name: 'Business Administration' }
+  { id: 'MBA', name: 'Business Administration' },
+  { id: 'MCA', name: 'Computer Applications' }
 ];
 
 // Clean State: No records

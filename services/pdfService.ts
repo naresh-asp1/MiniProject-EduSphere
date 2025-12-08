@@ -1,3 +1,5 @@
+
+
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Student } from "../types";
@@ -19,6 +21,16 @@ export const generateStudentPDF = (student: Student) => {
   doc.setFont("helvetica", "normal");
   doc.text("Student Performance Report", 14, 32);
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, 150, 32);
+
+  // Student Photo (Right Side of Header if available)
+  if (student.photo) {
+      try {
+          doc.addImage(student.photo, 'JPEG', 180, 5, 20, 20);
+      } catch (e) {
+          // Fallback if image format not supported or invalid
+          console.warn("Could not add image to PDF", e);
+      }
+  }
 
   // 1. Personal Details Section
   doc.setTextColor(50, 50, 50);

@@ -1,7 +1,7 @@
-
 import React, { useState, useRef } from 'react';
 import { Student, Department, StaffProfile, ChangeRequest, ParentProfile, DEFAULT_CREDS } from '../types';
-import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key, UserPlus, Briefcase, User } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key, UserPlus, Briefcase, User, Camera, Search, Filter, Shield, UserCheck, Crop } from 'lucide-react';
+import { ImageCropper } from './ImageCropper';
 
 interface Admin1Props {
   students: Student[];
@@ -20,6 +20,7 @@ const EMPTY_STUDENT: Student = {
   id: '',
   name: '',
   email: '',
+  photo: '',
   dob: '',
   grade: '',
   section: '',
@@ -59,10 +60,51 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   const [deptName, setDeptName] = useState('');
   
   // Staff State
-  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', department: '', allocatedSubjects: [], isHod: false, allocationStatus: 'pending' });
+  const [currentStaff, setCurrentStaff] = useState<StaffProfile>({ id: '', name: '', email: '', photo: '', department: '', allocatedSubjects: [], isHod: false, allocationStatus: 'pending' });
 
   // Parent State
   const [currentParent, setCurrentParent] = useState<ParentProfile>({ id: '', name: '', email: '', studentId: '', contactNumber: '' });
+
+  // CROPPER STATE
+  const [cropperState, setCropperState] = useState<{
+    isOpen: boolean;
+    imageSrc: string | null;
+    targetType: 'student' | 'staff';
+  }>({ isOpen: false, imageSrc: null, targetType: 'student' });
+
+  // --- PHOTO UPLOAD HANDLER ---
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'student' | 'staff') => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64String = reader.result as string;
+              // Instead of setting directly, open the cropper
+              setCropperState({
+                  isOpen: true,
+                  imageSrc: base64String,
+                  targetType: type
+              });
+          };
+          reader.readAsDataURL(file);
+      }
+      // Reset input value to allow re-uploading same file
+      e.target.value = '';
+  };
+
+  const handleCropComplete = (croppedImage: string) => {
+      if (cropperState.targetType === 'student') {
+          setCurrentStudent(prev => ({ ...prev, photo: croppedImage }));
+      } else {
+          setCurrentStaff(prev => ({ ...prev, photo: croppedImage }));
+      }
+      setCropperState({ isOpen: false, imageSrc: null, targetType: 'student' });
+  };
+
+  const cancelCrop = () => {
+      setCropperState({ isOpen: false, imageSrc: null, targetType: 'student' });
+  };
+
 
   // --- CSV IMPORT HANDLER ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,7 +275,7 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   };
 
   const initStaffAdd = () => {
-      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', department: departments[0]?.id || '', allocatedSubjects: [], isHod: false, allocationStatus: 'pending' });
+      setCurrentStaff({ id: `ST${Math.floor(Math.random() * 1000)}`, name: '', email: '', photo: '', department: departments[0]?.id || '', allocatedSubjects: [], isHod: false, allocationStatus: 'pending' });
       setIsEditing(false);
       setShowForm(true);
   };
@@ -308,33 +350,47 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+    <div className="max-w-7xl mx-auto animate-fade-in space-y-6">
+      
+      {/* CROPPER OVERLAY */}
+      {cropperState.isOpen && cropperState.imageSrc && (
+          <ImageCropper 
+              imageSrc={cropperState.imageSrc}
+              onCancel={cancelCrop}
+              onCropComplete={handleCropComplete}
+          />
+      )}
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-            <h1 className="text-2xl font-bold text-gray-800">System Administration (Admin I)</h1>
-            <p className="text-gray-500">Manage core data and finalize requests.</p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">System Administration</h1>
+            <p className="text-sm text-gray-500 mt-1">Manage core institutional data, users, and change requests.</p>
         </div>
         
-        <div className="flex items-center gap-2">
-             <button onClick={() => setShowCreds(true)} className="bg-white border border-gray-300 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium">
-                <Key size={16} /> Credentials Guide
+        <div className="flex flex-wrap items-center gap-3">
+             <button onClick={() => setShowCreds(true)} className="bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-2 text-sm font-medium shadow-sm">
+                <Key size={16} /> <span className="hidden sm:inline">Credentials</span>
             </button>
-            <div className="flex bg-white p-1 rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-                <button onClick={() => setActiveTab('students')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'students' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    <Users size={16} /> Students
-                </button>
-                <button onClick={() => setActiveTab('staff')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'staff' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    <UserCog size={16} /> Staff
-                </button>
-                <button onClick={() => setActiveTab('parents')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'parents' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    <User size={16} /> Parents
-                </button>
-                <button onClick={() => setActiveTab('departments')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'departments' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    <Building2 size={16} /> Depts
-                </button>
-                <button onClick={() => setActiveTab('requests')} className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'requests' ? 'bg-amber-100 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    <GitPullRequestArrow size={16} /> Requests
-                </button>
+            <div className="flex bg-gray-100 p-1.5 rounded-xl shadow-inner">
+                {[
+                  { id: 'students', label: 'Students', icon: Users },
+                  { id: 'staff', label: 'Staff', icon: UserCog },
+                  { id: 'parents', label: 'Parents', icon: User },
+                  { id: 'departments', label: 'Depts', icon: Building2 },
+                  { id: 'requests', label: 'Requests', icon: GitPullRequestArrow }
+                ].map((tab) => (
+                  <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)} 
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
+                      activeTab === tab.id 
+                        ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-black/5' 
+                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                    }`}
+                  >
+                    <tab.icon size={16} /> <span className="hidden md:inline">{tab.label}</span>
+                  </button>
+                ))}
             </div>
         </div>
       </div>
@@ -344,57 +400,77 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
       {/* 1. STUDENTS TAB */}
       {activeTab === 'students' && (
           <>
-            <div className="flex justify-between items-center mb-4">
-                <div className="text-sm text-gray-500">Total Students: {students.length}</div>
-                <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-3">
+                     <div className="bg-white px-4 py-2 rounded-full border border-gray-200 text-sm font-medium text-gray-600 shadow-sm">
+                        Total Students: <span className="text-indigo-600 font-bold ml-1">{students.length}</span>
+                     </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
                     <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
-                    <button onClick={handleAutoAssignTutors} className="bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-orange-700 text-sm font-medium" title="Split unassigned students among department staff">
+                    <button onClick={handleAutoAssignTutors} className="bg-orange-50 text-orange-700 border border-orange-200 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-orange-100 transition-colors text-sm font-semibold" title="Split unassigned students among department staff">
                         <UserPlus size={16} /> Auto-Assign Tutors
                     </button>
-                    <button onClick={triggerFileUpload} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 text-sm font-medium">
+                    <button onClick={triggerFileUpload} className="bg-green-50 text-green-700 border border-green-200 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-green-100 transition-colors text-sm font-semibold">
                         <Upload size={16} /> Import CSV
                     </button>
-                    <button onClick={initStudentAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 text-sm font-medium">
-                        <Plus size={16} /> Add Student
+                    <button onClick={initStudentAdd} className="bg-indigo-600 text-white px-5 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-700 shadow-md hover:shadow-lg transition-all text-sm font-bold">
+                        <Plus size={18} /> Add Student
                     </button>
                 </div>
             </div>
-            <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+            
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 border-b">
+                        <thead className="bg-gray-50/50 border-b border-gray-100">
                             <tr>
-                                <th className="p-4">Roll No</th>
-                                <th className="p-4">Name</th>
-                                <th className="p-4">Email</th>
-                                <th className="p-4">Department</th>
-                                <th className="p-4">Tutor Status</th>
-                                <th className="p-4">Parent Status</th>
-                                <th className="p-4">Actions</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Profile</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Roll No</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Department</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Tutor</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Parent</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-100">
                             {students.map(s => (
-                                <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
-                                    <td className="p-4 font-mono">{s.id}</td>
-                                    <td className="p-4 font-medium">{s.name}</td>
-                                    <td className="p-4 text-gray-500">{s.email}</td>
-                                    <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
+                                <tr key={s.id} className="hover:bg-gray-50/80 transition-colors group">
+                                    <td className="p-4">
+                                        {s.photo ? (
+                                            <img src={s.photo} alt="Student" className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-300 border border-indigo-100"><User size={20}/></div>
+                                        )}
+                                    </td>
+                                    <td className="p-4 font-mono text-gray-600 font-medium">{s.id}</td>
+                                    <td className="p-4 font-semibold text-gray-800">
+                                        {s.name}
+                                        <div className="text-[10px] text-gray-400 font-normal">{s.email}</div>
+                                    </td>
+                                    <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-indigo-100">{s.department}</span></td>
                                     <td className="p-4">
                                         {s.tutorId ? (
-                                            <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-mono border border-green-200">{s.tutorId}</span>
+                                            <span className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full w-fit">
+                                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> Assigned
+                                            </span>
                                         ) : (
-                                            <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-xs font-bold border border-red-200">Unassigned</span>
+                                            <span className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 px-2 py-1 rounded-full w-fit">
+                                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div> Pending
+                                            </span>
                                         )}
                                     </td>
                                     <td className="p-4">
                                         {parentList.find(p => p.studentId === s.id) ? (
-                                            <span className="text-green-600 text-xs font-bold">Linked</span>
-                                        ) : <span className="text-gray-400 text-xs">No Parent</span>}
+                                            <span className="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded">Linked</span>
+                                        ) : <span className="text-gray-400 text-xs italic">Unlinked</span>}
                                     </td>
-                                    <td className="p-4">
-                                        <button onClick={() => initStudentEdit(s)} className="text-blue-600 hover:underline mr-3">Edit</button>
-                                        <button onClick={() => setStudents(prev => prev.filter(st => st.id !== s.id))} className="text-red-600 hover:underline">Delete</button>
+                                    <td className="p-4 text-right">
+                                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => initStudentEdit(s)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit"><Edit2 size={16}/></button>
+                                            <button onClick={() => setStudents(prev => prev.filter(st => st.id !== s.id))} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 size={16}/></button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -404,36 +480,63 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
             </div>
             {/* STUDENT FORM MODAL */}
             {showForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Student' : 'Add Student'}</h2>
-                        <form onSubmit={handleStudentSubmit} className="space-y-3">
-                            <input placeholder="Name" required className="w-full border p-2 rounded" value={currentStudent.name} onChange={e => setCurrentStudent({...currentStudent, name: e.target.value})} />
-                            <input placeholder="Email" type="email" required className="w-full border p-2 rounded" value={currentStudent.email} onChange={e => setCurrentStudent({...currentStudent, email: e.target.value})} />
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                    <div className="bg-white p-6 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 animate-slide-up">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Edit Student Profile' : 'New Student Registration'}</h2>
+                            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"><X size={20}/></button>
+                        </div>
+                        <form onSubmit={handleStudentSubmit} className="space-y-4">
+                            <div className="flex items-center gap-5 mb-4 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 relative group/photo">
+                                <div className="w-20 h-20 rounded-full bg-white overflow-hidden flex items-center justify-center border-4 border-white shadow-sm shrink-0 relative">
+                                    {currentStudent.photo ? (
+                                        <img src={currentStudent.photo} alt="Preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <Camera size={28} className="text-gray-300" />
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-2 flex items-center gap-2">
+                                        Student Photo
+                                    </label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={(e) => handlePhotoUpload(e, 'student')}
+                                        className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all cursor-pointer"
+                                    />
+                                    <p className="text-[10px] text-gray-400 mt-1">Upload to enable cropping tool</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4">
+                                <input placeholder="Full Name" required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium" value={currentStudent.name} onChange={e => setCurrentStudent({...currentStudent, name: e.target.value})} />
+                                <input placeholder="Email Address" type="email" required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium" value={currentStudent.email} onChange={e => setCurrentStudent({...currentStudent, email: e.target.value})} />
+                            </div>
                             
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-500">Batch (Join Year)</label>
-                                    <input type="number" className="w-full border p-2 rounded" value={currentStudent.batch} onChange={e => setCurrentStudent({...currentStudent, batch: parseInt(e.target.value)})} />
+                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Batch</label>
+                                    <input type="number" className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" value={currentStudent.batch} onChange={e => setCurrentStudent({...currentStudent, batch: parseInt(e.target.value)})} />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-500">Roll No</label>
-                                    <input type="text" className="w-full border p-2 rounded" value={currentStudent.id} onChange={e => setCurrentStudent({...currentStudent, id: e.target.value})} />
+                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Roll No</label>
+                                    <input type="text" className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono" value={currentStudent.id} onChange={e => setCurrentStudent({...currentStudent, id: e.target.value})} />
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-500 mb-1 block">Department</label>
-                                    <select className="w-full border p-2 rounded" value={currentStudent.department} onChange={e => setCurrentStudent({...currentStudent, department: e.target.value})}>
+                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Department</label>
+                                    <select className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white" value={currentStudent.department} onChange={e => setCurrentStudent({...currentStudent, department: e.target.value})}>
                                         <option value="">Select Dept</option>
                                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-500 mb-1 block">Residence</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Residence</label>
                                     <select 
-                                        className="w-full border p-2 rounded" 
+                                        className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white" 
                                         value={currentStudent.residenceType} 
                                         onChange={e => setCurrentStudent({...currentStudent, residenceType: e.target.value as 'Hosteller' | 'Day Scholar'})}
                                     >
@@ -444,10 +547,10 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                             </div>
 
                              {/* Tutor Allocation */}
-                             <div>
-                                <label className="block text-xs font-bold text-indigo-600 mb-1">Assign Tutor / Mentor</label>
+                             <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                                <label className="block text-xs font-bold text-indigo-800 uppercase mb-1">Assign Tutor / Mentor</label>
                                 <select 
-                                    className="w-full border p-2 rounded bg-indigo-50 border-indigo-200"
+                                    className="w-full border border-indigo-200 p-2.5 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                                     value={currentStudent.tutorId || ''}
                                     onChange={e => setCurrentStudent({...currentStudent, tutorId: e.target.value})}
                                 >
@@ -461,20 +564,20 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                 </select>
                             </div>
                             
-                            <div className="space-y-1">
-                                <label className="text-xs text-gray-500">Residential Address</label>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Residential Address</label>
                                 <textarea 
                                     required 
                                     placeholder="Full Address" 
-                                    className="w-full border p-2 rounded h-20 text-sm" 
+                                    className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-h-[80px]" 
                                     value={currentStudent.address} 
                                     onChange={e => setCurrentStudent({...currentStudent, address: e.target.value})} 
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-2 mt-4">
-                                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all text-sm">Save Changes</button>
                             </div>
                         </form>
                     </div>
@@ -487,45 +590,58 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
       {activeTab === 'staff' && (
           <>
              <div className="flex justify-end mb-4">
-                <button onClick={initStaffAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"><Plus size={16} /> Add Staff</button>
+                <button onClick={initStaffAdd} className="bg-indigo-600 text-white px-5 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-700 shadow-md hover:shadow-lg transition-all text-sm font-bold">
+                    <Plus size={18} /> Add Staff
+                </button>
             </div>
-            <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-gray-50/50 border-b border-gray-100">
                         <tr>
-                            <th className="p-4">ID / Code</th>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">Email</th>
-                            <th className="p-4">Dept</th>
-                            <th className="p-4">Role</th>
-                            <th className="p-4">Allocated Subjects</th>
-                            <th className="p-4">Actions</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Profile</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">ID / Code</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Dept</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Allocated Subjects</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100">
                         {staffList.map(s => (
-                            <tr key={s.id} className={`border-b last:border-0 hover:bg-gray-50 ${s.isHod ? 'bg-indigo-50/50' : ''}`}>
-                                <td className="p-4 font-mono text-gray-700 font-bold">{s.id}</td>
-                                <td className="p-4 font-medium">{s.name}</td>
-                                <td className="p-4 text-gray-500">{s.email}</td>
-                                <td className="p-4"><span className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs">{s.department}</span></td>
+                            <tr key={s.id} className={`hover:bg-gray-50/80 transition-colors group ${s.isHod ? 'bg-purple-50/30' : ''}`}>
+                                <td className="p-4">
+                                    {s.photo ? (
+                                        <img src={s.photo} alt="Staff" className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400"><UserCog size={20}/></div>
+                                    )}
+                                </td>
+                                <td className="p-4 font-mono text-gray-700 font-semibold text-xs">{s.id}</td>
+                                <td className="p-4">
+                                    <div className="font-semibold text-gray-800">{s.name}</div>
+                                    <div className="text-[10px] text-gray-500">{s.email}</div>
+                                </td>
+                                <td className="p-4"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-purple-100">{s.department}</span></td>
                                 <td className="p-4">
                                     {s.isHod 
-                                        ? <span className="flex items-center gap-1 text-indigo-700 font-bold text-xs"><Briefcase size={12}/> Head of Dept</span>
-                                        : <span className="text-gray-500 text-xs">Staff</span>
+                                        ? <span className="flex items-center gap-1 text-indigo-700 font-bold text-xs bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100"><Briefcase size={12}/> HOD</span>
+                                        : <span className="text-gray-500 text-xs font-medium">Staff</span>
                                     }
                                 </td>
                                 <td className="p-4">
                                     <div className="flex flex-wrap gap-1">
                                         {s.allocatedSubjects && s.allocatedSubjects.length > 0 
-                                            ? s.allocatedSubjects.map(sub => <span key={sub} className="bg-gray-100 px-2 py-0.5 rounded text-xs border border-gray-200">{sub}</span>)
-                                            : <span className="text-gray-400 italic text-xs">Unassigned</span>
+                                            ? s.allocatedSubjects.map(sub => <span key={sub} className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-mono border border-gray-200 text-gray-600">{sub}</span>)
+                                            : <span className="text-gray-300 italic text-xs">Unassigned</span>
                                         }
                                     </div>
                                 </td>
-                                <td className="p-4 flex gap-2">
-                                    <button onClick={() => initStaffEdit(s)} className="text-blue-600 hover:underline">Edit</button>
-                                    <button onClick={() => setStaffList(prev => prev.filter(st => st.id !== s.id))} className="text-red-600 hover:underline">Delete</button>
+                                <td className="p-4 text-right">
+                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => initStaffEdit(s)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 size={16}/></button>
+                                        <button onClick={() => setStaffList(prev => prev.filter(st => st.id !== s.id))} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -534,37 +650,60 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
             </div>
             {/* STAFF FORM MODAL */}
             {showForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-xl w-full max-w-lg">
-                        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Staff' : 'Add Staff'} Member</h2>
-                        <form onSubmit={handleStaffSubmit} className="space-y-3">
-                            <input placeholder="Name" required className="w-full border p-2 rounded" value={currentStaff.name} onChange={e => setCurrentStaff({...currentStaff, name: e.target.value})} />
-                            <input placeholder="Email" type="email" required className="w-full border p-2 rounded" value={currentStaff.email} onChange={e => setCurrentStaff({...currentStaff, email: e.target.value})} />
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                    <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-2xl animate-slide-up">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Edit Staff' : 'Add Staff'} Member</h2>
+                            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                        </div>
+                        <form onSubmit={handleStaffSubmit} className="space-y-4">
+                            <div className="flex items-center gap-5 mb-4 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                <div className="w-20 h-20 rounded-full bg-white overflow-hidden flex items-center justify-center border-4 border-white shadow-sm shrink-0">
+                                    {currentStaff.photo ? (
+                                        <img src={currentStaff.photo} alt="Preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <Camera size={28} className="text-gray-300" />
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Staff Photo</label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={(e) => handlePhotoUpload(e, 'staff')}
+                                        className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                                    />
+                                    <p className="text-[10px] text-gray-400 mt-1">Upload to enable cropping tool</p>
+                                </div>
+                            </div>
+
+                            <input placeholder="Name" required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" value={currentStaff.name} onChange={e => setCurrentStaff({...currentStaff, name: e.target.value})} />
+                            <input placeholder="Email" type="email" required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" value={currentStaff.email} onChange={e => setCurrentStaff({...currentStaff, email: e.target.value})} />
                             
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Assign Department</label>
-                                <select required className="w-full border p-2 rounded" value={currentStaff.department} onChange={e => setCurrentStaff({...currentStaff, department: e.target.value})}>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assign Department</label>
+                                <select required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white" value={currentStaff.department} onChange={e => setCurrentStaff({...currentStaff, department: e.target.value})}>
                                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
                             </div>
 
-                            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded border border-gray-200">
+                            <div className="flex items-start gap-3 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                                 <input 
                                     type="checkbox" 
                                     id="isHod" 
                                     checked={currentStaff.isHod} 
                                     onChange={e => setCurrentStaff({...currentStaff, isHod: e.target.checked})}
-                                    className="w-5 h-5 text-indigo-600"
+                                    className="mt-1 w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                 />
                                 <div>
                                     <label htmlFor="isHod" className="block text-sm font-bold text-indigo-900">Assign as Head of Department (HOD)</label>
-                                    <p className="text-xs text-gray-500">This will grant access to all student data in the department and change ID code.</p>
+                                    <p className="text-xs text-indigo-700 mt-1 leading-relaxed">This grants administrative access to all student data within the department and updates their ID code format.</p>
                                 </div>
                             </div>
                             
-                            <div className="flex justify-end gap-2 mt-4">
-                                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all text-sm">Save Staff</button>
                             </div>
                         </form>
                     </div>
@@ -577,62 +716,72 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
       {activeTab === 'parents' && (
           <>
              <div className="flex justify-end mb-4">
-                <button onClick={initParentAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"><Plus size={16} /> Add Parent</button>
+                <button onClick={initParentAdd} className="bg-indigo-600 text-white px-5 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-700 shadow-md transition-all text-sm font-bold"><Plus size={18} /> Add Parent</button>
             </div>
-            <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-gray-50/50 border-b border-gray-100">
                         <tr>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">Email</th>
-                            <th className="p-4">Contact</th>
-                            <th className="p-4">Child (Student)</th>
-                            <th className="p-4">Actions</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Child (Student)</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100">
                         {parentList.map(p => {
                             const child = students.find(s => s.id === p.studentId);
                             return (
-                                <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
-                                    <td className="p-4 font-medium">{p.name}</td>
+                                <tr key={p.id} className="hover:bg-gray-50/80 transition-colors group">
+                                    <td className="p-4 font-semibold text-gray-800">{p.name}</td>
                                     <td className="p-4 text-gray-500">{p.email}</td>
-                                    <td className="p-4">{p.contactNumber}</td>
+                                    <td className="p-4 font-mono text-gray-600">{p.contactNumber}</td>
                                     <td className="p-4">
                                         {child ? (
-                                            <div>
-                                                <div className="font-bold text-indigo-600">{child.name}</div>
-                                                <div className="text-xs text-gray-400 font-mono">{child.id}</div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-bold">
+                                                    {child.name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-gray-800 text-xs">{child.name}</div>
+                                                    <div className="text-[10px] text-gray-400 font-mono">{child.id}</div>
+                                                </div>
                                             </div>
-                                        ) : <span className="text-red-500 italic">Not Linked</span>}
+                                        ) : <span className="text-red-500 text-xs font-bold bg-red-50 px-2 py-1 rounded">Not Linked</span>}
                                     </td>
-                                    <td className="p-4 flex gap-2">
-                                        <button onClick={() => initParentEdit(p)} className="text-blue-600 hover:underline">Edit</button>
-                                        <button onClick={() => setParentList(prev => prev.filter(pr => pr.id !== p.id))} className="text-red-600 hover:underline">Delete</button>
+                                    <td className="p-4 text-right">
+                                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => initParentEdit(p)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 size={16}/></button>
+                                            <button onClick={() => setParentList(prev => prev.filter(pr => pr.id !== p.id))} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                        </div>
                                     </td>
                                 </tr>
                             );
                         })}
-                        {parentList.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-400">No parents added.</td></tr>}
+                        {parentList.length === 0 && <tr><td colSpan={5} className="p-12 text-center text-gray-400 italic">No parent accounts created yet.</td></tr>}
                     </tbody>
                 </table>
             </div>
 
             {/* PARENT FORM MODAL */}
             {showForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-xl w-full max-w-lg">
-                        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Edit Parent' : 'Add Parent'}</h2>
-                        <form onSubmit={handleParentSubmit} className="space-y-3">
-                            <input placeholder="Parent Name" required className="w-full border p-2 rounded" value={currentParent.name} onChange={e => setCurrentParent({...currentParent, name: e.target.value})} />
-                            <input placeholder="Email Address" type="email" required className="w-full border p-2 rounded" value={currentParent.email} onChange={e => setCurrentParent({...currentParent, email: e.target.value})} />
-                            <input placeholder="Contact Number" required className="w-full border p-2 rounded" value={currentParent.contactNumber} onChange={e => setCurrentParent({...currentParent, contactNumber: e.target.value})} />
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                    <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-2xl animate-slide-up">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">{isEditing ? 'Edit Parent Account' : 'New Parent Account'}</h2>
+                            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                        </div>
+                        <form onSubmit={handleParentSubmit} className="space-y-4">
+                            <input placeholder="Parent Name" required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" value={currentParent.name} onChange={e => setCurrentParent({...currentParent, name: e.target.value})} />
+                            <input placeholder="Email Address" type="email" required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" value={currentParent.email} onChange={e => setCurrentParent({...currentParent, email: e.target.value})} />
+                            <input placeholder="Contact Number" required className="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" value={currentParent.contactNumber} onChange={e => setCurrentParent({...currentParent, contactNumber: e.target.value})} />
                             
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Select Child (Student)</label>
+                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Child (Student)</label>
                                 <select 
                                     required 
-                                    className="w-full border p-2 rounded max-h-40" 
+                                    className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white max-h-40" 
                                     value={currentParent.studentId} 
                                     onChange={e => setCurrentParent({...currentParent, studentId: e.target.value})}
                                 >
@@ -643,9 +792,9 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                                 </select>
                             </div>
 
-                            <div className="flex justify-end gap-2 mt-4">
-                                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all text-sm">Save Account</button>
                             </div>
                         </form>
                     </div>
@@ -656,28 +805,31 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
 
       {/* 4. DEPARTMENTS TAB */}
       {activeTab === 'departments' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow border border-gray-200">
-                  <h3 className="font-bold text-gray-700 mb-4">Add New Department</h3>
-                  <form onSubmit={addDepartment} className="flex gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                  <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600"><Building2 size={24}/></div>
+                      <h3 className="font-bold text-lg text-gray-800">Add New Department</h3>
+                  </div>
+                  <form onSubmit={addDepartment} className="flex gap-3">
                       <input 
                         type="text" 
                         required 
                         placeholder="Department Name" 
-                        className="flex-1 border p-2 rounded" 
+                        className="flex-1 border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm" 
                         value={deptName}
                         onChange={e => setDeptName(e.target.value)}
                       />
-                      <button type="submit" className="bg-indigo-600 text-white px-4 rounded hover:bg-indigo-700">Add</button>
+                      <button type="submit" className="bg-indigo-600 text-white px-6 rounded-xl hover:bg-indigo-700 font-bold shadow-md transition-all">Add</button>
                   </form>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow border border-gray-200">
-                  <h3 className="font-bold text-gray-700 mb-4">Existing Departments</h3>
-                  <ul className="space-y-2">
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                  <h3 className="font-bold text-gray-800 mb-6 text-lg">Existing Departments</h3>
+                  <ul className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                       {departments.map(d => (
-                          <li key={d.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                              <span>{d.name}</span>
-                              <span className="text-xs text-gray-400 font-mono">{d.id}</span>
+                          <li key={d.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors border border-gray-100">
+                              <span className="font-medium text-gray-700">{d.name}</span>
+                              <span className="text-xs text-indigo-600 font-mono bg-indigo-50 px-2 py-1 rounded border border-indigo-100">{d.id}</span>
                           </li>
                       ))}
                   </ul>
@@ -687,31 +839,31 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
 
       {/* 5. REQUESTS TAB */}
       {activeTab === 'requests' && (
-          <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-              <div className="p-4 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
-                  <strong>Pending Admin Action:</strong> These requests have been verified by Admin II and are waiting for you to update the database.
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-4 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm flex items-center gap-2">
+                  <AlertFilter size={16} /> <strong>Pending Admin Action:</strong> These requests have been verified by Admin II and await your final database update.
               </div>
               <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>
-                          <th className="p-4">Student</th>
-                          <th className="p-4">Field</th>
-                          <th className="p-4">New Value</th>
-                          <th className="p-4">Reason</th>
-                          <th className="p-4">Action</th>
+                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Student</th>
+                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Field</th>
+                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">New Value</th>
+                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reason</th>
+                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                       </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100">
                       {requests.filter(r => r.status === 'pending_admin1').map(r => (
-                          <tr key={r.id} className="border-b hover:bg-amber-50/50">
-                              <td className="p-4 font-medium">{r.studentName}</td>
-                              <td className="p-4">{r.field}</td>
-                              <td className="p-4 font-bold text-indigo-600">{r.newValue}</td>
-                              <td className="p-4 text-gray-500 italic">"{r.reason}"</td>
-                              <td className="p-4">
+                          <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
+                              <td className="p-4 font-semibold text-gray-800">{r.studentName}</td>
+                              <td className="p-4 text-gray-600">{r.field}</td>
+                              <td className="p-4 font-mono font-bold text-indigo-600">{r.newValue}</td>
+                              <td className="p-4 text-gray-500 italic text-xs">"{r.reason}"</td>
+                              <td className="p-4 text-right">
                                   <button 
                                     onClick={() => executeRequest(r)}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1"
+                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1.5 ml-auto transition-all"
                                   >
                                       <Save size={14} /> Update Data
                                   </button>
@@ -720,7 +872,10 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                       ))}
                       {requests.filter(r => r.status === 'pending_admin1').length === 0 && (
                           <tr>
-                              <td colSpan={5} className="p-8 text-center text-gray-400">No verified requests pending action.</td>
+                              <td colSpan={5} className="p-12 text-center text-gray-400 flex flex-col items-center">
+                                  <CheckCircle size={32} className="mb-2 opacity-20"/>
+                                  No verified requests pending final action.
+                              </td>
                           </tr>
                       )}
                   </tbody>
@@ -730,46 +885,67 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
 
       {/* CREDENTIALS MODAL */}
       {showCreds && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white p-8 rounded-xl w-full max-w-2xl">
-                  <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800">System Access Credentials</h2>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-white p-8 rounded-2xl w-full max-w-2xl shadow-2xl animate-slide-up border border-gray-100">
+                  <div className="flex justify-between items-center mb-8">
+                      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Key className="text-indigo-600"/> System Credentials</h2>
                       <button onClick={() => setShowCreds(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
                   </div>
                   
                   <div className="space-y-6">
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                          <h3 className="font-bold text-blue-900 mb-2">Student, Parent & Staff Login Policy</h3>
-                          <p className="text-sm text-blue-800 mb-2">
-                              Login uses <strong>Email Address</strong> as Username.
+                      <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                          <h3 className="font-bold text-blue-900 mb-3 text-lg">General Login Policy</h3>
+                          <p className="text-sm text-blue-800 mb-3 leading-relaxed">
+                              All users (Students, Staff, Parents) log in using their registered <strong>Email Address</strong>.
                           </p>
-                          <ul className="list-disc list-inside text-sm text-blue-800 font-mono">
-                              <li>Student Password: <strong>{DEFAULT_CREDS.STUDENT_PASS}</strong></li>
-                              <li>Staff/HOD Password: <strong>{DEFAULT_CREDS.STAFF_PASS}</strong></li>
-                              <li>Parent Password: <strong>{DEFAULT_CREDS.PARENT_PASS}</strong></li>
-                          </ul>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                                  <div className="text-xs text-blue-500 font-bold uppercase mb-1">Student Pass</div>
+                                  <div className="font-mono text-blue-900 font-bold">{DEFAULT_CREDS.STUDENT_PASS}</div>
+                              </div>
+                              <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                                  <div className="text-xs text-blue-500 font-bold uppercase mb-1">Staff/HOD Pass</div>
+                                  <div className="font-mono text-blue-900 font-bold">{DEFAULT_CREDS.STAFF_PASS}</div>
+                              </div>
+                              <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                                  <div className="text-xs text-blue-500 font-bold uppercase mb-1">Parent Pass</div>
+                                  <div className="font-mono text-blue-900 font-bold">{DEFAULT_CREDS.PARENT_PASS}</div>
+                              </div>
+                          </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                           <div className="p-4 border rounded-lg">
-                               <h4 className="font-bold text-gray-700">Admin I (Master)</h4>
-                               <div className="text-sm mt-2">
-                                   User: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN1.user}</code><br/>
-                                   Pass: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN1.pass}</code>
+                      <div className="grid grid-cols-2 gap-6">
+                           <div className="p-5 border border-gray-200 rounded-xl bg-gray-50">
+                               <h4 className="font-bold text-gray-800 flex items-center gap-2 mb-3"><Shield size={16}/> Admin I (Master)</h4>
+                               <div className="space-y-2">
+                                   <div className="flex justify-between text-sm">
+                                       <span className="text-gray-500">User:</span>
+                                       <code className="bg-white px-2 py-0.5 rounded border border-gray-200 font-mono font-bold">{DEFAULT_CREDS.ADMIN1.user}</code>
+                                   </div>
+                                   <div className="flex justify-between text-sm">
+                                       <span className="text-gray-500">Pass:</span>
+                                       <code className="bg-white px-2 py-0.5 rounded border border-gray-200 font-mono font-bold">{DEFAULT_CREDS.ADMIN1.pass}</code>
+                                   </div>
                                </div>
                            </div>
-                           <div className="p-4 border rounded-lg">
-                               <h4 className="font-bold text-gray-700">Admin II (Verifier)</h4>
-                               <div className="text-sm mt-2">
-                                   User: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN2.user}</code><br/>
-                                   Pass: <code className="bg-gray-100 px-1 rounded">{DEFAULT_CREDS.ADMIN2.pass}</code>
+                           <div className="p-5 border border-gray-200 rounded-xl bg-gray-50">
+                               <h4 className="font-bold text-gray-800 flex items-center gap-2 mb-3"><UserCheck size={16}/> Admin II (Verifier)</h4>
+                               <div className="space-y-2">
+                                   <div className="flex justify-between text-sm">
+                                       <span className="text-gray-500">User:</span>
+                                       <code className="bg-white px-2 py-0.5 rounded border border-gray-200 font-mono font-bold">{DEFAULT_CREDS.ADMIN2.user}</code>
+                                   </div>
+                                   <div className="flex justify-between text-sm">
+                                       <span className="text-gray-500">Pass:</span>
+                                       <code className="bg-white px-2 py-0.5 rounded border border-gray-200 font-mono font-bold">{DEFAULT_CREDS.ADMIN2.pass}</code>
+                                   </div>
                                </div>
                            </div>
                       </div>
                   </div>
 
                   <div className="mt-8 flex justify-end">
-                      <button onClick={() => setShowCreds(false)} className="bg-gray-800 text-white px-6 py-2 rounded-lg hover:bg-gray-900">Close Guide</button>
+                      <button onClick={() => setShowCreds(false)} className="bg-gray-900 text-white px-8 py-3 rounded-xl hover:bg-black font-bold shadow-lg transition-all">Close Guide</button>
                   </div>
               </div>
           </div>
@@ -778,3 +954,11 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
     </div>
   );
 };
+
+// Helper for icon
+const AlertFilter = ({size}: {size: number}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+);
+const CheckCircle = ({size, className}: {size: number, className?: string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+);

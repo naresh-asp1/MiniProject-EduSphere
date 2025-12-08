@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { Student } from '../types';
 import { User, Mail, Phone, MapPin, Calendar, GraduationCap, TrendingUp, BookOpen, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
@@ -27,8 +29,12 @@ export const ParentDashboard: React.FC<ParentProps> = ({ student }) => {
     <div className="max-w-7xl mx-auto h-[calc(100vh-6rem)] flex flex-col">
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 flex flex-col md:flex-row items-center gap-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg">
-              <User size={36} />
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg overflow-hidden border-2 border-white">
+              {student.photo ? (
+                  <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
+              ) : (
+                  <User size={36} />
+              )}
           </div>
           <div className="text-center md:text-left">
               <h1 className="text-2xl font-bold text-gray-800">{student.name}</h1>

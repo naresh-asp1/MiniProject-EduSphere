@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { Student, ChangeRequest, StaffProfile } from '../types';
 import { Send, History, FileText, AlertTriangle, User, Mail, Phone, MapPin, Calendar, GraduationCap, BookOpen, ChevronRight, TrendingUp, Award, Home, UserCheck, X, CheckCircle, XCircle } from 'lucide-react';
@@ -73,9 +75,13 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
             <div className="h-24 bg-gradient-to-r from-indigo-600 to-purple-600"></div>
             <div className="px-6 pb-6 text-center relative">
                <div className="w-24 h-24 mx-auto bg-white p-1 rounded-full -mt-12 shadow-md">
-                  <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center text-gray-400">
-                      <User size={40} />
-                  </div>
+                  {student.photo ? (
+                      <img src={student.photo} alt={student.name} className="w-full h-full rounded-full object-cover border-2 border-white" />
+                  ) : (
+                      <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center text-gray-400">
+                          <User size={40} />
+                      </div>
+                  )}
                </div>
                <h2 className="text-xl font-bold text-gray-800 mt-3">{student.name}</h2>
                <p className="text-sm text-gray-500 font-mono">{student.id}</p>
@@ -135,9 +141,18 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
                       <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
                           <UserCheck size={14}/> Assigned Tutor
                       </h4>
-                      <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-                          <p className="font-bold text-indigo-900 text-sm">{myTutor.name}</p>
-                          <p className="text-xs text-indigo-700 break-all">{myTutor.email}</p>
+                      <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-white border border-indigo-200 overflow-hidden flex items-center justify-center shrink-0">
+                                {myTutor.photo ? (
+                                    <img src={myTutor.photo} alt={myTutor.name} className="w-full h-full object-cover"/>
+                                ) : (
+                                    <User size={20} className="text-indigo-300"/>
+                                )}
+                          </div>
+                          <div className="overflow-hidden">
+                              <p className="font-bold text-indigo-900 text-sm truncate">{myTutor.name}</p>
+                              <p className="text-xs text-indigo-700 break-all truncate">{myTutor.email}</p>
+                          </div>
                       </div>
                   </div>
                )}

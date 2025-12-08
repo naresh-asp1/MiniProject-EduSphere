@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Student, ChangeRequest, StaffProfile } from '../types';
-import { CheckCircle, XCircle, Download, BrainCircuit, ClipboardCheck, MonitorCheck, Briefcase, CheckSquare, AlertCircle, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Download, BrainCircuit, ClipboardCheck, MonitorCheck, Briefcase, CheckSquare, AlertCircle, FileText, Bell } from 'lucide-react';
 import { analyzeClassPerformance } from '../services/geminiService';
 import { generateStudentPDF } from '../services/pdfService';
 
@@ -77,7 +77,7 @@ export const Admin2Dashboard: React.FC<Admin2Props> = ({
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Verification Portal (Admin II)</h1>
           <p className="text-gray-500">Monitor data integrity and verify system changes.</p>
@@ -95,6 +95,29 @@ export const Admin2Dashboard: React.FC<Admin2Props> = ({
             </button>
         </div>
       </div>
+
+      {/* NOTIFICATION BANNER */}
+      {pendingAllocations.length > 0 && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="flex items-center gap-4">
+             <div className="p-3 bg-amber-100 text-amber-600 rounded-full shrink-0">
+                <Bell size={24} />
+             </div>
+             <div>
+               <h3 className="font-bold text-gray-800">Action Required: Subject Allocations Pending</h3>
+               <p className="text-sm text-gray-600 mt-1">
+                 <span className="font-bold text-amber-700">{pendingAllocations.length} staff members</span> have updated subject allocations waiting for your verification.
+               </p>
+             </div>
+          </div>
+          <button 
+            onClick={() => setActiveTab('verify_allocations')}
+            className="whitespace-nowrap bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+          >
+            Review Now <CheckSquare size={16}/>
+          </button>
+        </div>
+      )}
 
       {/* TAB 1: DATA MONITORING */}
       {activeTab === 'monitor' && (

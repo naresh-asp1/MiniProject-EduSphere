@@ -5,14 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EduSphere SMS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
             colors: {
-              primary: '#4f46e5',
-              secondary: '#10b981',
-              dark: '#1e293b',
+              primary: {
+                50: '#eef2ff',
+                100: '#e0e7ff',
+                500: '#6366f1',
+                600: '#4f46e5',
+                700: '#4338ca',
+                900: '#312e81',
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.6s ease-out',
+              'slide-up': 'slideUp 0.6s ease-out',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
             }
           }
         }
@@ -28,12 +51,14 @@
     "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
-    "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^3.8.2"
+    "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^3.8.2",
+    "react-easy-crop": "https://esm.sh/react-easy-crop@5.0.0?external=react,react-dom",
+    "tslib": "https://esm.sh/tslib@2.6.0"
   }
 }
 </script>
 </head>
-  <body class="bg-gray-50 text-gray-900 font-sans antialiased">
+  <body class="bg-white text-slate-900 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-700">
     <div id="root"></div>
   </body>
 </html>
