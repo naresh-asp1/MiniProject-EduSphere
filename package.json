@@ -17,7 +17,10 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "react-easy-crop": "5.0.0",
-    "tslib": "2.6.0"
+    "tslib": "2.6.0",
+    "@supabase/supabase-js": "2.39.0",
+    "mammoth": "1.6.0",
+    "pdfjs-dist": "3.11.174"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

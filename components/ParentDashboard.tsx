@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { Student } from '../types';
 import { User, Mail, Phone, MapPin, Calendar, GraduationCap, TrendingUp, BookOpen, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
@@ -24,6 +22,14 @@ export const ParentDashboard: React.FC<ParentProps> = ({ student }) => {
   }, {} as Record<string, typeof student.attendanceLog>);
 
   const sortedDates = Object.keys(attendanceByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  
+  // Helper to check pass/fail
+  const isPassed = (mark: any) => {
+      const isPg = ['MBA', 'MCA'].includes(student.department);
+      const passMark = isPg ? 50 : 40;
+      // Strict check on semester mark
+      return (mark.semesterExam >= passMark) && (mark.gradeLabel !== 'RA' && mark.gradeLabel !== 'U');
+  };
 
   return (
     <div className="max-w-7xl mx-auto h-[calc(100vh-6rem)] flex flex-col">
@@ -77,10 +83,14 @@ export const ParentDashboard: React.FC<ParentProps> = ({ student }) => {
               <div className="space-y-6">
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                       <h3 className="font-bold text-gray-500 uppercase text-xs mb-4">Summary</h3>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                           <div className="bg-green-50 p-4 rounded-lg text-center">
                               <div className="text-3xl font-bold text-green-600">{student.attendancePercentage}%</div>
                               <div className="text-xs text-green-800 font-medium">Attendance</div>
+                          </div>
+                          <div className="bg-purple-50 p-4 rounded-lg text-center">
+                              <div className="text-3xl font-bold text-purple-600">{student.cgpa || '0.0'}</div>
+                              <div className="text-xs text-purple-800 font-medium">CGPA</div>
                           </div>
                           <div className="bg-orange-50 p-4 rounded-lg text-center">
                               <div className="text-3xl font-bold text-orange-600">{student.backlogs.length}</div>
@@ -120,7 +130,9 @@ export const ParentDashboard: React.FC<ParentProps> = ({ student }) => {
                               <th className="p-4">Subject Code</th>
                               <th className="p-4">Name</th>
                               <th className="p-4 text-center">Credits</th>
-                              <th className="p-4 text-center">Score</th>
+                              <th className="p-4 text-center">Sem Mark</th>
+                              <th className="p-4 text-center">Total Score</th>
+                              <th className="p-4 text-center">Grade</th>
                               <th className="p-4 text-center">Result</th>
                           </tr>
                       </thead>
@@ -130,16 +142,18 @@ export const ParentDashboard: React.FC<ParentProps> = ({ student }) => {
                                   <td className="p-4 font-mono">{m.code}</td>
                                   <td className="p-4 font-medium">{m.name}</td>
                                   <td className="p-4 text-center">{m.credits}</td>
-                                  <td className="p-4 text-center font-bold">{m.score}</td>
+                                  <td className="p-4 text-center text-gray-600">{m.semesterExam}</td>
+                                  <td className="p-4 text-center font-bold">{m.total || m.score}</td>
+                                  <td className="p-4 text-center"><span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold">{m.gradeLabel || '-'}</span></td>
                                   <td className="p-4 text-center">
-                                      {m.score >= 50 
+                                      {isPassed(m) 
                                           ? <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">PASS</span>
                                           : <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">FAIL</span>
                                       }
                                   </td>
                               </tr>
                           ))}
-                          {semesterMarks.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400">No marks recorded.</td></tr>}
+                          {semesterMarks.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-gray-400">No marks recorded.</td></tr>}
                       </tbody>
                   </table>
               </div>

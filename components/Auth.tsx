@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, Role, Student, StaffProfile, ParentProfile, DEFAULT_CREDS } from '../types';
 import { UserCheck, Shield, GraduationCap, BookOpen, X, User as UserIcon, Lock, CheckCircle, Mail, ExternalLink, Briefcase, ArrowRight } from 'lucide-react';
@@ -11,11 +10,9 @@ interface AuthProps {
 }
 
 export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parentList }) => {
-  const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState(''); 
   const [role, setRole] = useState<Role>(Role.STUDENT);
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
 
   // Forgot Password State
@@ -28,84 +25,73 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parent
     e.preventDefault();
     setError('');
 
-    if (isLogin) {
-      // Login Logic
-      if (role === Role.ADMIN1) {
-        if (username === DEFAULT_CREDS.ADMIN1.user && password === DEFAULT_CREDS.ADMIN1.pass) {
-          onLogin({ id: 'admin1', username, name: 'Master Admin', role });
-        } else {
-          setError('Invalid Admin I credentials.');
-        }
-      } else if (role === Role.ADMIN2) {
-        if (username === DEFAULT_CREDS.ADMIN2.user && password === DEFAULT_CREDS.ADMIN2.pass) {
-          onLogin({ id: 'admin2', username, name: 'Verifier Admin', role });
-        } else {
-          setError('Invalid Admin II credentials.');
-        }
-      } else if (role === Role.HOD) {
-        const staff = staffList.find(s => s.email === username);
-        if (staff && password === DEFAULT_CREDS.STAFF_PASS) {
-             if (staff.isHod) {
-                 onLogin({ 
-                    id: staff.id, 
-                    username, 
-                    name: staff.name, 
-                    role: Role.HOD, 
-                    department: staff.department, 
-                    isHod: true 
-                 });
-             } else {
-                 setError('Access Denied. You do not have Head of Department privileges.');
-             }
-        } else {
-             setError('Invalid HOD email or password.');
-        }
-      } else if (role === Role.STAFF) {
-        const staff = staffList.find(s => s.email === username);
-        if (staff && password === DEFAULT_CREDS.STAFF_PASS) {
-          // If the user is actually an HOD but clicked Staff, we still log them in with their correct role privileges
-          const finalRole = staff.isHod ? Role.HOD : Role.STAFF;
-          onLogin({ 
-              id: staff.id, 
-              username, 
-              name: staff.name, 
-              role: finalRole, 
-              department: staff.department, 
-              isHod: staff.isHod 
-          });
-        } else {
-          setError('Invalid Staff email or password.');
-        }
-      } else if (role === Role.STUDENT) {
-        const student = students.find(s => s.email === username);
-        if (student && password === DEFAULT_CREDS.STUDENT_PASS) {
-          onLogin({ id: student.id, username, name: student.name, role, department: student.department });
-        } else {
-          setError('Invalid Student email or password.');
-        }
-      } else if (role === Role.PARENT) {
-        const parent = parentList.find(p => p.email === username);
-        if (parent && password === DEFAULT_CREDS.PARENT_PASS) {
-            onLogin({ 
-                id: parent.id, 
-                username, 
-                name: parent.name, 
-                role, 
-                studentId: parent.studentId 
-            });
-        } else {
-            setError('Invalid Parent email or password.');
-        }
-      }
+    // Login Logic
+    if (role === Role.ADMIN1) {
+    if (username === DEFAULT_CREDS.ADMIN1.user && password === DEFAULT_CREDS.ADMIN1.pass) {
+        onLogin({ id: 'admin1', username, name: 'Master Admin', role });
     } else {
-      // Registration Simulation
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        username,
-        name, 
-        role,
-      };
-      onLogin(newUser);
+        setError('Invalid Admin I credentials.');
+    }
+    } else if (role === Role.ADMIN2) {
+    if (username === DEFAULT_CREDS.ADMIN2.user && password === DEFAULT_CREDS.ADMIN2.pass) {
+        onLogin({ id: 'admin2', username, name: 'Verifier Admin', role });
+    } else {
+        setError('Invalid Admin II credentials.');
+    }
+    } else if (role === Role.HOD) {
+    const staff = staffList.find(s => s.email === username);
+    if (staff && password === DEFAULT_CREDS.STAFF_PASS) {
+            if (staff.isHod) {
+                onLogin({ 
+                id: staff.id, 
+                username, 
+                name: staff.name, 
+                role: Role.HOD, 
+                department: staff.department, 
+                isHod: true 
+                });
+            } else {
+                setError('Access Denied. You do not have Head of Department privileges.');
+            }
+    } else {
+            setError('Invalid HOD email or password.');
+    }
+    } else if (role === Role.STAFF) {
+    const staff = staffList.find(s => s.email === username);
+    if (staff && password === DEFAULT_CREDS.STAFF_PASS) {
+        // If the user is actually an HOD but clicked Staff, we still log them in with their correct role privileges
+        const finalRole = staff.isHod ? Role.HOD : Role.STAFF;
+        onLogin({ 
+            id: staff.id, 
+            username, 
+            name: staff.name, 
+            role: finalRole, 
+            department: staff.department, 
+            isHod: staff.isHod 
+        });
+    } else {
+        setError('Invalid Staff email or password.');
+    }
+    } else if (role === Role.STUDENT) {
+    const student = students.find(s => s.email === username);
+    if (student && password === DEFAULT_CREDS.STUDENT_PASS) {
+        onLogin({ id: student.id, username, name: student.name, role, department: student.department });
+    } else {
+        setError('Invalid Student email or password.');
+    }
+    } else if (role === Role.PARENT) {
+    const parent = parentList.find(p => p.email === username);
+    if (parent && password === DEFAULT_CREDS.PARENT_PASS) {
+        onLogin({ 
+            id: parent.id, 
+            username, 
+            name: parent.name, 
+            role, 
+            studentId: parent.studentId 
+        });
+    } else {
+        setError('Invalid Parent email or password.');
+    }
     }
   };
 
@@ -158,19 +144,9 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parent
         </div>
         
         <div className="p-8">
-          <div className="flex justify-center mb-6 space-x-1 bg-gray-100 p-1 rounded-xl">
-            <button 
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${isLogin ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Sign In
-            </button>
-            <button 
-              onClick={() => setIsLogin(false)}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${!isLogin ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Create Account
-            </button>
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-bold text-gray-800">Authorized Access</h3>
+            <p className="text-sm text-gray-500">Please sign in with your institutional credentials.</p>
           </div>
 
           {error && (
@@ -208,23 +184,6 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parent
                 ))}
               </div>
             </div>
-
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
-                <div className="relative">
-                    <UserIcon className="absolute left-3 top-3 text-gray-400" size={18}/>
-                    <input
-                    type="text"
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white outline-none transition-all text-sm font-medium"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="John Doe"
-                    />
-                </div>
-              </div>
-            )}
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">{role === Role.ADMIN1 || role === Role.ADMIN2 ? 'Username' : 'Email Address'}</label>
@@ -256,23 +215,21 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parent
               </div>
             </div>
 
-            {isLogin && (
-                <div className="flex justify-end">
-                    <button 
-                        type="button" 
-                        onClick={() => setShowForgotPassword(true)}
-                        className="text-sm text-indigo-600 hover:text-indigo-800 hover:underline font-medium transition-colors"
-                    >
-                        Forgot Password?
-                    </button>
-                </div>
-            )}
+            <div className="flex justify-end">
+                <button 
+                    type="button" 
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-sm text-indigo-600 hover:text-indigo-800 hover:underline font-medium transition-colors"
+                >
+                    Forgot Password?
+                </button>
+            </div>
 
             <button
               type="submit"
               className="w-full mt-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg hover:translate-y-[-1px] flex items-center justify-center gap-2"
             >
-              {isLogin ? 'Access Dashboard' : 'Create Account'}
+              Access Dashboard
               <ArrowRight size={18} />
             </button>
           </form>

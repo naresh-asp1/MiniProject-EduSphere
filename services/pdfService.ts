@@ -81,7 +81,7 @@ export const generateStudentPDF = (student: Student) => {
 
   doc.text(`Current Semester: ${student.currentSemester}`, 14, 118);
   doc.text(`Attendance Percentage: ${student.attendancePercentage}%`, 80, 118);
-  doc.text(`Active Backlogs: ${student.backlogs.length}`, 150, 118);
+  doc.text(`CGPA: ${student.cgpa || '0.0'}`, 150, 118);
 
   // 3. Performance Report Content
   if (student.performanceReport) {
@@ -96,21 +96,30 @@ export const generateStudentPDF = (student: Student) => {
   }
 
   // 4. Marks Table
-  const tableData = student.marks.map(m => [
-      m.code,
-      m.name,
-      m.semester.toString(),
-      m.credits.toString(),
-      m.score.toString(),
-      m.score >= 50 ? 'PASS' : 'FAIL'
-  ]);
+  // Check pass/fail based on semester mark
+  const isPg = ['MBA', 'MCA'].includes(student.department);
+  const passMark = isPg ? 50 : 40;
+
+  const tableData = student.marks.map(m => {
+      const isPass = (m.semesterExam >= passMark) && (m.gradeLabel !== 'RA' && m.gradeLabel !== 'U');
+      return [
+        m.code,
+        m.name,
+        m.semester.toString(),
+        m.credits.toString(),
+        m.semesterExam.toString(), // Added Sem Mark column
+        (m.total || m.score).toString(),
+        m.gradeLabel || '-',
+        isPass ? 'PASS' : 'FAIL'
+      ];
+  });
 
   // Calculate start Y based on report text length
   let tableStartY = student.performanceReport ? 160 : 135;
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [['Code', 'Subject', 'Sem', 'Credits', 'Score', 'Result']],
+    head: [['Code', 'Subject', 'Sem', 'Credits', 'Sem Mark', 'Total', 'Grade', 'Result']],
     body: tableData,
     theme: 'grid',
     headStyles: { 
@@ -119,15 +128,17 @@ export const generateStudentPDF = (student: Student) => {
         fontStyle: 'bold'
     },
     columnStyles: {
-        0: { cellWidth: 25 },
+        0: { cellWidth: 20 },
         1: { cellWidth: 'auto' },
         2: { cellWidth: 15, halign: 'center' },
-        3: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 15, halign: 'center' },
         4: { cellWidth: 20, halign: 'center' },
-        5: { cellWidth: 25, halign: 'center', fontStyle: 'bold' }
+        5: { cellWidth: 20, halign: 'center' },
+        6: { cellWidth: 20, halign: 'center' },
+        7: { cellWidth: 20, halign: 'center', fontStyle: 'bold' }
     },
     didParseCell: function(data) {
-        if (data.section === 'body' && data.column.index === 5) {
+        if (data.section === 'body' && data.column.index === 7) {
             if (data.cell.raw === 'FAIL') {
                 data.cell.styles.textColor = [220, 38, 38]; // Red
             } else {
