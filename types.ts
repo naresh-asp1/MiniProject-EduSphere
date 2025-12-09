@@ -26,6 +26,14 @@ export interface User {
   studentId?: string; // For Parents
 }
 
+export interface AdminProfile {
+    id: string;
+    name: string;
+    username: string;
+    password: string;
+    role: Role.ADMIN1 | Role.ADMIN2;
+}
+
 export interface SubjectMark {
   code: string;
   name: string;
@@ -143,3 +151,7 @@ export const INITIAL_DEPARTMENTS: Department[] = [
 export const INITIAL_STAFF: StaffProfile[] = [];
 export const INITIAL_STUDENTS: Student[] = [];
 export const INITIAL_PARENTS: ParentProfile[] = [];
+export const INITIAL_ADMINS: AdminProfile[] = [
+    { id: 'ADM01', name: 'Master Admin', username: 'admin1', password: 'admin123', role: Role.ADMIN1 },
+    { id: 'ADM02', name: 'Verifier Admin', username: 'admin2', password: 'admin223', role: Role.ADMIN2 }
+];

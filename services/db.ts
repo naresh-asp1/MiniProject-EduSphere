@@ -1,7 +1,6 @@
 
-
 import { supabase, isSupabaseConfigured } from './supabase';
-import { Student, StaffProfile, ParentProfile, ChangeRequest, Department, INITIAL_DEPARTMENTS, Course } from '../types';
+import { Student, StaffProfile, ParentProfile, ChangeRequest, Department, INITIAL_DEPARTMENTS, Course, AdminProfile, INITIAL_ADMINS } from '../types';
 
 // Force usage of DB if configured, only fall back on catastrophic failure
 const USE_DB = isSupabaseConfigured();
@@ -12,7 +11,8 @@ const LS_KEYS = {
     PARENTS: 'edusphere_parents_v2',
     REQUESTS: 'edusphere_requests_v2',
     DEPTS: 'edusphere_depts_v2',
-    SUBJECTS: 'edusphere_subjects_v2'
+    SUBJECTS: 'edusphere_subjects_v2',
+    ADMINS: 'edusphere_admins_v2'
 };
 
 let isDbCircuitOpen = false;
@@ -360,28 +360,23 @@ export const db = {
         }
     },
 
-    // SUBJECTS - ENHANCED WITH MERGE STRATEGY
+    // SUBJECTS
     async fetchSubjects() {
         const localData = getLS<Course[]>(LS_KEYS.SUBJECTS, []);
-        
         if (!USE_DB || isDbCircuitOpen) {
             return localData;
         }
-
         try {
             const { data, error } = await supabase.from('subjects').select('*');
             if (error) throw error;
-            
             const dbData = data as Course[];
-            
-            // SMART MERGE: Combine DB data with Local data to avoid data loss during flaky connections
+            // SMART MERGE
             const merged = [...dbData];
             localData.forEach(localSub => {
                 if (!merged.find(d => d.code === localSub.code)) {
                     merged.push(localSub);
                 }
             });
-            
             return merged.map(s => ({...s, type: s.type || 'Theory'}));
         } catch (e) {
             handleDBError('fetchSubjects', e);
@@ -395,20 +390,13 @@ export const db = {
             if (idx >= 0) list[idx] = subject; else list.push(subject);
             setLS(LS_KEYS.SUBJECTS, list);
         };
-
-        // Always save to LS first for immediate redundancy
         saveToLS();
-
-        if (!USE_DB || isDbCircuitOpen) {
-            return true;
-        }
-        
+        if (!USE_DB || isDbCircuitOpen) return true;
         try {
             await supabase.from('subjects').upsert(subject);
             return true;
         } catch (e) { 
             handleDBError('addSubject', e); 
-            // Already saved to LS above, so we are safe
             return true; 
         }
     },
@@ -417,12 +405,8 @@ export const db = {
              const list = getLS<Course[]>(LS_KEYS.SUBJECTS, []);
             setLS(LS_KEYS.SUBJECTS, list.filter(s => s.code !== code));
         };
-        
         deleteFromLS();
-
-        if (!USE_DB || isDbCircuitOpen) {
-            return true;
-        }
+        if (!USE_DB || isDbCircuitOpen) return true;
         try {
             await supabase.from('subjects').delete().eq('code', code);
             return true;
@@ -460,6 +444,55 @@ export const db = {
         } catch (e) { 
             handleDBError('upsertRequest', e); 
             saveToLS();
+            return true; 
+        }
+    },
+
+    // ADMINS (NEW)
+    async fetchAdmins() {
+        if (!USE_DB || isDbCircuitOpen) return getLS<AdminProfile[]>(LS_KEYS.ADMINS, INITIAL_ADMINS);
+        try {
+            const { data, error } = await supabase.from('admins').select('*');
+            if (error) throw error;
+            return data ? data as AdminProfile[] : [];
+        } catch (e) {
+            handleDBError('fetchAdmins', e);
+            return getLS<AdminProfile[]>(LS_KEYS.ADMINS, INITIAL_ADMINS);
+        }
+    },
+    async upsertAdmin(admin: AdminProfile) {
+        const saveToLS = () => {
+            const list = getLS<AdminProfile[]>(LS_KEYS.ADMINS, INITIAL_ADMINS);
+            const idx = list.findIndex(a => a.id === admin.id);
+            if (idx >= 0) list[idx] = admin; else list.push(admin);
+            setLS(LS_KEYS.ADMINS, list);
+        };
+        if (!USE_DB || isDbCircuitOpen) {
+            saveToLS(); return true;
+        }
+        try {
+            await supabase.from('admins').upsert(admin);
+            return true;
+        } catch (e) { 
+            handleDBError('upsertAdmin', e); 
+            saveToLS();
+            return true; 
+        }
+    },
+    async deleteAdmin(id: string) {
+        const deleteFromLS = () => {
+            const list = getLS<AdminProfile[]>(LS_KEYS.ADMINS, INITIAL_ADMINS);
+            setLS(LS_KEYS.ADMINS, list.filter(a => a.id !== id));
+        };
+        if (!USE_DB || isDbCircuitOpen) {
+            deleteFromLS(); return true;
+        }
+        try {
+            await supabase.from('admins').delete().eq('id', id);
+            return true;
+        } catch (e) { 
+            handleDBError('deleteAdmin', e); 
+            deleteFromLS();
             return true; 
         }
     }

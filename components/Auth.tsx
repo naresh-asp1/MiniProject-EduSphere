@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { User, Role, Student, StaffProfile, ParentProfile, DEFAULT_CREDS } from '../types';
+import { User, Role, Student, StaffProfile, ParentProfile, DEFAULT_CREDS, AdminProfile } from '../types';
 import { UserCheck, Shield, GraduationCap, BookOpen, X, User as UserIcon, Lock, CheckCircle, Mail, ExternalLink, Briefcase, ArrowRight } from 'lucide-react';
 
 interface AuthProps {
@@ -7,9 +8,10 @@ interface AuthProps {
   students: Student[];
   staffList: StaffProfile[];
   parentList: ParentProfile[];
+  adminList: AdminProfile[];
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parentList }) => {
+export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parentList, adminList }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState(''); 
   const [role, setRole] = useState<Role>(Role.STUDENT);
@@ -27,17 +29,31 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, students, staffList, parent
 
     // Login Logic
     if (role === Role.ADMIN1) {
-    if (username === DEFAULT_CREDS.ADMIN1.user && password === DEFAULT_CREDS.ADMIN1.pass) {
-        onLogin({ id: 'admin1', username, name: 'Master Admin', role });
-    } else {
-        setError('Invalid Admin I credentials.');
-    }
+        // Dynamic Check
+        const admin = adminList.find(a => a.username === username && a.password === password && a.role === Role.ADMIN1);
+        // Fallback Check
+        const isDefault = username === DEFAULT_CREDS.ADMIN1.user && password === DEFAULT_CREDS.ADMIN1.pass;
+        
+        if (admin) {
+            onLogin({ id: admin.id, username, name: admin.name, role });
+        } else if (isDefault) {
+             onLogin({ id: 'admin1', username, name: 'Master Admin', role });
+        } else {
+            setError('Invalid Admin I credentials.');
+        }
     } else if (role === Role.ADMIN2) {
-    if (username === DEFAULT_CREDS.ADMIN2.user && password === DEFAULT_CREDS.ADMIN2.pass) {
-        onLogin({ id: 'admin2', username, name: 'Verifier Admin', role });
-    } else {
-        setError('Invalid Admin II credentials.');
-    }
+        // Dynamic Check
+        const admin = adminList.find(a => a.username === username && a.password === password && a.role === Role.ADMIN2);
+        // Fallback Check
+        const isDefault = username === DEFAULT_CREDS.ADMIN2.user && password === DEFAULT_CREDS.ADMIN2.pass;
+
+        if (admin) {
+            onLogin({ id: admin.id, username, name: admin.name, role });
+        } else if (isDefault) {
+             onLogin({ id: 'admin2', username, name: 'Verifier Admin', role });
+        } else {
+            setError('Invalid Admin II credentials.');
+        }
     } else if (role === Role.HOD) {
     const staff = staffList.find(s => s.email === username);
     if (staff && password === DEFAULT_CREDS.STAFF_PASS) {

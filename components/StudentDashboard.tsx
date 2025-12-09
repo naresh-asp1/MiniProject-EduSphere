@@ -143,8 +143,12 @@ export const StudentDashboard: React.FC<StudentProps> = ({ student, requests, se
                         <div className="flex items-center gap-3 text-gray-600">
                             <Calendar size={16} className="text-indigo-500"/> Batch: {student.batch}
                         </div>
-                        <div className="flex items-center gap-3 text-gray-600">
-                            <User size={16} className="text-indigo-500"/> Tutor: {tutor ? tutor.name : 'Not Assigned'}
+                        <div className="flex items-start gap-3 text-gray-600">
+                            <User size={16} className="text-indigo-500 mt-0.5"/> 
+                            <div>
+                                <div className="font-medium">Tutor: {tutor ? tutor.name : 'Not Assigned'}</div>
+                                {tutor && <div className="text-xs text-gray-400">{tutor.email}</div>}
+                            </div>
                         </div>
                         <div className="flex items-center gap-3 text-gray-600">
                             <Award size={16} className="text-indigo-500"/> Residence: {student.residenceType}

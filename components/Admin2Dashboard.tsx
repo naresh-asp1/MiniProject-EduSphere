@@ -26,6 +26,7 @@ export const Admin2Dashboard: React.FC<Admin2Props> = ({
   const [filterDept, setFilterDept] = useState('');
   const [filterVerified, setFilterVerified] = useState<'all'|'verified'|'unverified'>('all');
   const [filterFees, setFilterFees] = useState<'all'|'paid'|'pending'>('all');
+  const [filterStaffStatus, setFilterStaffStatus] = useState<'all'|'verified'|'pending'|'rejected'>('all');
 
   const toggleVerification = async (id: string) => {
     const student = students.find(s => s.id === id);
@@ -70,6 +71,11 @@ export const Admin2Dashboard: React.FC<Admin2Props> = ({
       const matchesFees = filterFees === 'all' ? true : filterFees === 'paid' ? s.feesPaid : !s.feesPaid;
       return matchesSearch && matchesDept && matchesVer && matchesFees;
   });
+
+  const filteredStaff = staffList?.filter(s => {
+      if (filterStaffStatus === 'all') return true;
+      return s.allocationStatus === filterStaffStatus;
+  }) || [];
 
   const pendingRequestsCount = requests.filter(r => r.status === 'pending_admin2').length;
   const pendingAllocationsCount = staffList ? staffList.filter(s => s.allocationStatus === 'pending').length : 0;
@@ -227,6 +233,21 @@ export const Admin2Dashboard: React.FC<Admin2Props> = ({
               {/* STAFF MONITOR */}
               {activeTab === 'monitor_staff' && staffList && (
                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+                       <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-end">
+                            <div className="flex items-center gap-2">
+                                <Filter size={16} className="text-gray-500"/>
+                                <select 
+                                    className="border p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white" 
+                                    value={filterStaffStatus} 
+                                    onChange={e => setFilterStaffStatus(e.target.value as any)}
+                                >
+                                    <option value="all">Allocation Status: All</option>
+                                    <option value="verified">Verified</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                            </div>
+                       </div>
                        <table className="w-full text-left text-sm">
                             <thead className="bg-white border-b border-gray-100">
                                 <tr>
@@ -238,7 +259,7 @@ export const Admin2Dashboard: React.FC<Admin2Props> = ({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {staffList.map(s => (
+                                {filteredStaff.map(s => (
                                     <tr key={s.id} className="hover:bg-gray-50">
                                         <td className="p-4 font-medium">
                                             {s.name}
@@ -251,9 +272,18 @@ export const Admin2Dashboard: React.FC<Admin2Props> = ({
                                             {s.allocationStatus === 'verified' && <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Verified</span>}
                                             {s.allocationStatus === 'pending' && <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">Pending</span>}
                                             {s.allocationStatus === 'rejected' && <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Rejected</span>}
+                                            {/* Default fallback */}
+                                            {!s.allocationStatus && <span className="text-gray-400 text-xs italic">N/A</span>}
                                         </td>
                                     </tr>
                                 ))}
+                                {filteredStaff.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="p-8 text-center text-gray-400">
+                                            No staff records match the selected filter.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                        </table>
                    </div>

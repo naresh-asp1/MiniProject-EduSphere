@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Student, Department, StaffProfile, ChangeRequest, ParentProfile, DEFAULT_CREDS, Course } from '../types';
+import { Student, Department, StaffProfile, ChangeRequest, ParentProfile, DEFAULT_CREDS, Course, AdminProfile, Role } from '../types';
 import { Plus, Trash2, Edit2, Save, X, Building2, Users, UserCog, GitPullRequestArrow, Upload, FileText, Key, UserPlus, Briefcase, User, Camera, Search, Filter, Shield, UserCheck, Crop, CheckCircle, AlertCircle, Banknote, Book, Award, BookOpen, FlaskConical, PenTool } from 'lucide-react';
 import { ImageCropper } from './ImageCropper';
 import { db } from '../services/db';
@@ -18,6 +18,8 @@ interface Admin1Props {
   setParentList: React.Dispatch<React.SetStateAction<ParentProfile[]>>;
   subjects: Course[];
   setSubjects: React.Dispatch<React.SetStateAction<Course[]>>;
+  adminList: AdminProfile[];
+  setAdminList: React.Dispatch<React.SetStateAction<AdminProfile[]>>;
 }
 
 const EMPTY_STUDENT: Student = {
@@ -52,9 +54,10 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   staffList, setStaffList,
   requests, setRequests,
   parentList, setParentList,
-  subjects, setSubjects
+  subjects, setSubjects,
+  adminList, setAdminList
 }) => {
-  const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'parents' | 'departments' | 'requests' | 'curriculum'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'parents' | 'departments' | 'requests' | 'curriculum' | 'admins'>('students');
   const [isEditing, setIsEditing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showCreds, setShowCreds] = useState(false);
@@ -70,6 +73,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   const [currentParent, setCurrentParent] = useState<ParentProfile>({ id: '', name: '', email: '', studentId: '', contactNumber: '' });
   // Subject State
   const [currentSubject, setCurrentSubject] = useState<Course>({ code: '', name: '', credits: 3, department: '', semester: 1, type: 'Theory' });
+  // Admin State
+  const [currentAdmin, setCurrentAdmin] = useState<AdminProfile>({ id: '', name: '', username: '', password: '', role: Role.ADMIN1 });
 
   // CROPPER STATE
   const [cropperState, setCropperState] = useState<{
@@ -283,6 +288,37 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
       await db.deleteSubject(code);
   };
 
+  const handleAdminSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      const newAdmin = { ...currentAdmin };
+      if (!isEditing) {
+          // Check username uniqueness
+          if (adminList.find(a => a.username === newAdmin.username)) {
+              alert("Username already exists.");
+              return;
+          }
+      }
+      
+      if (isEditing) {
+          setAdminList(prev => prev.map(a => a.id === newAdmin.id ? newAdmin : a));
+      } else {
+          setAdminList(prev => [...prev, newAdmin]);
+      }
+      await db.upsertAdmin(newAdmin);
+      setShowForm(false);
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+      if (adminList.length <= 1) {
+          alert("Cannot delete the last admin.");
+          return;
+      }
+      if (!confirm("Delete this admin user?")) return;
+      setAdminList(prev => prev.filter(a => a.id !== id));
+      await db.deleteAdmin(id);
+  };
+
   const executeRequest = async (req: ChangeRequest) => {
       const studentIndex = students.findIndex(s => s.id === req.studentId);
       if (studentIndex === -1) return;
@@ -320,6 +356,8 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
   const initParentAdd = () => { setCurrentParent({ id: `P${Math.floor(Math.random() * 10000)}`, name: '', email: '', studentId: '', contactNumber: '' }); setIsEditing(false); setShowForm(true); };
 
   const initSubjectAdd = () => { setCurrentSubject({ code: '', name: '', credits: 3, department: departments[0]?.id || '', semester: 1, type: 'Theory' }); setShowForm(true); };
+  
+  const initAdminAdd = () => { setCurrentAdmin({ id: `ADM${Math.floor(Math.random() * 1000)}`, name: '', username: '', password: '', role: Role.ADMIN1 }); setIsEditing(false); setShowForm(true); };
 
   // CSV Import
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -374,9 +412,17 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
         </div>
         <div className="flex flex-wrap items-center gap-3">
              <button onClick={() => setShowCreds(true)} className="bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-50 flex items-center gap-2 text-sm font-medium shadow-sm"><Key size={16} /> Creds</button>
-            <div className="flex bg-gray-100 p-1.5 rounded-xl shadow-inner">
-                {[{ id: 'students', label: 'Students', icon: Users }, { id: 'staff', label: 'Staff', icon: UserCog }, { id: 'parents', label: 'Parents', icon: User }, { id: 'departments', label: 'Depts', icon: Building2 }, { id: 'curriculum', label: 'Curriculum', icon: Book }, { id: 'requests', label: 'Requests', icon: GitPullRequestArrow }].map((tab) => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500'}`}><tab.icon size={16} /> <span className="hidden md:inline">{tab.label}</span></button>
+            <div className="flex bg-gray-100 p-1.5 rounded-xl shadow-inner overflow-x-auto">
+                {[
+                    { id: 'students', label: 'Students', icon: Users }, 
+                    { id: 'staff', label: 'Staff', icon: UserCog }, 
+                    { id: 'parents', label: 'Parents', icon: User }, 
+                    { id: 'departments', label: 'Depts', icon: Building2 }, 
+                    { id: 'curriculum', label: 'Curriculum', icon: Book }, 
+                    { id: 'requests', label: 'Requests', icon: GitPullRequestArrow },
+                    { id: 'admins', label: 'Admins', icon: Shield }
+                ].map((tab) => (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500'}`}><tab.icon size={16} /> <span className="hidden md:inline">{tab.label}</span></button>
                 ))}
             </div>
         </div>
@@ -602,6 +648,32 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
               </div>
           </div>
       )}
+
+      {/* CONTENT: ADMINS (NEW) */}
+      {activeTab === 'admins' && (
+          <>
+            <div className="flex justify-end mb-4">
+                <button onClick={initAdminAdd} className="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-bold flex gap-2"><Plus size={18} /> Add Admin</button>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50/50 border-b border-gray-100"><tr><th className="p-4">Name</th><th className="p-4">Username</th><th className="p-4">Role</th><th className="p-4 text-right">Actions</th></tr></thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {adminList.map(a => (
+                            <tr key={a.id} className="hover:bg-gray-50 group">
+                                <td className="p-4 font-bold text-gray-800">{a.name}</td>
+                                <td className="p-4 font-mono text-gray-600">{a.username}</td>
+                                <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${a.role === Role.ADMIN1 ? 'bg-indigo-100 text-indigo-700' : 'bg-teal-100 text-teal-700'}`}>{a.role === Role.ADMIN1 ? 'Admin I' : 'Admin II'}</span></td>
+                                <td className="p-4 text-right">
+                                    <button onClick={() => handleDeleteAdmin(a.id)} className="text-red-600 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+          </>
+      )}
       
       {/* MODALS */}
       {/* 1. CREDENTIALS MODAL */}
@@ -610,9 +682,18 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
             <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl relative">
                 <button onClick={() => setShowCreds(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
                 <h2 className="text-2xl font-bold mb-2">System Credentials</h2>
-                <p className="mb-6 text-gray-500 text-sm">Use these to access different modules. Data persists in your connected DB.</p>
+                <p className="mb-6 text-gray-500 text-sm">Use these to access different modules.</p>
                 
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3 text-sm">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3 text-sm max-h-60 overflow-y-auto">
+                    <div className="font-bold text-gray-800 mb-2">Active Admins</div>
+                    {adminList.map(a => (
+                        <div key={a.id} className="flex justify-between border-b pb-2 last:border-0">
+                            <span className="font-medium">{a.name} ({a.role === Role.ADMIN1 ? 'Admin I' : 'Admin II'})</span>
+                            <span className="font-mono text-gray-600">{a.username} / {a.password}</span>
+                        </div>
+                    ))}
+                    
+                    <div className="font-bold text-gray-800 mt-4 mb-2">Defaults (Backup)</div>
                     <div className="flex justify-between border-b pb-2">
                         <span className="font-medium">Admin I (Main)</span>
                         <span className="font-mono text-gray-600">{DEFAULT_CREDS.ADMIN1.user} / {DEFAULT_CREDS.ADMIN1.pass}</span>
@@ -620,14 +701,6 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                     <div className="flex justify-between border-b pb-2">
                         <span className="font-medium">Admin II (Verifier)</span>
                         <span className="font-mono text-gray-600">{DEFAULT_CREDS.ADMIN2.user} / {DEFAULT_CREDS.ADMIN2.pass}</span>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                        <span className="font-medium">Staff / HOD</span>
-                        <span className="font-mono text-gray-600">[Email] / {DEFAULT_CREDS.STAFF_PASS}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="font-medium">Student</span>
-                        <span className="font-mono text-gray-600">[Email] / {DEFAULT_CREDS.STUDENT_PASS}</span>
                     </div>
                 </div>
             </div>
@@ -825,6 +898,43 @@ export const Admin1Dashboard: React.FC<Admin1Props> = ({
                      <div className="flex gap-3 pt-4">
                         <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl font-semibold">Cancel</button>
                         <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-semibold shadow-md">Save Subject</button>
+                     </div>
+                 </form>
+              </div>
+          </div>
+      )}
+
+      {/* 6. ADMIN FORM MODAL (NEW) */}
+      {showForm && activeTab === 'admins' && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-2xl">
+                 <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold">Add Admin User</h2>
+                    <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
+                 </div>
+                 
+                 <form onSubmit={handleAdminSubmit} className="space-y-4">
+                     <input placeholder="Admin Name" required className="border p-2.5 rounded-lg w-full" value={currentAdmin.name} onChange={e => setCurrentAdmin({...currentAdmin, name: e.target.value})} />
+                     <input placeholder="Username (Login ID)" required className="border p-2.5 rounded-lg w-full" value={currentAdmin.username} onChange={e => setCurrentAdmin({...currentAdmin, username: e.target.value})} disabled={isEditing} />
+                     <input placeholder="Password" required className="border p-2.5 rounded-lg w-full" value={currentAdmin.password} onChange={e => setCurrentAdmin({...currentAdmin, password: e.target.value})} />
+                     
+                     <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Admin Role</label>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="role" checked={currentAdmin.role === Role.ADMIN1} onChange={() => setCurrentAdmin({...currentAdmin, role: Role.ADMIN1})} />
+                                <span className="text-sm font-medium">Admin I (Main)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="role" checked={currentAdmin.role === Role.ADMIN2} onChange={() => setCurrentAdmin({...currentAdmin, role: Role.ADMIN2})} />
+                                <span className="text-sm font-medium">Admin II (Verifier)</span>
+                            </label>
+                        </div>
+                     </div>
+
+                     <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl font-semibold">Cancel</button>
+                        <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-semibold shadow-md">Save Admin</button>
                      </div>
                  </form>
               </div>

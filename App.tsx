@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Role, User, Student, ChangeRequest, Department, StaffProfile, ParentProfile, INITIAL_DEPARTMENTS, Course } from './types';
+import { Role, User, Student, ChangeRequest, Department, StaffProfile, ParentProfile, INITIAL_DEPARTMENTS, Course, AdminProfile } from './types';
 import { Auth } from './components/Auth';
 import { Admin1Dashboard } from './components/Admin1Dashboard';
 import { Admin2Dashboard } from './components/Admin2Dashboard';
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
   const [parentList, setParentList] = useState<ParentProfile[]>([]);
   const [subjects, setSubjects] = useState<Course[]>([]);
+  const [adminList, setAdminList] = useState<AdminProfile[]>([]);
 
   // Initial Data Fetch
   useEffect(() => {
@@ -31,13 +32,14 @@ const App: React.FC = () => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [fetchedStudents, fetchedStaff, fetchedParents, fetchedReqs, fetchedDepts, fetchedSubjects] = await Promise.all([
+            const [fetchedStudents, fetchedStaff, fetchedParents, fetchedReqs, fetchedDepts, fetchedSubjects, fetchedAdmins] = await Promise.all([
                 db.fetchStudents(),
                 db.fetchStaff(),
                 db.fetchParents(),
                 db.fetchRequests(),
                 db.fetchDepartments(),
-                db.fetchSubjects()
+                db.fetchSubjects(),
+                db.fetchAdmins()
             ]);
 
             setStudents(fetchedStudents);
@@ -46,6 +48,7 @@ const App: React.FC = () => {
             setRequests(fetchedReqs);
             if (fetchedDepts.length > 0) setDepartments(fetchedDepts);
             setSubjects(fetchedSubjects);
+            setAdminList(fetchedAdmins);
 
         } catch (e) {
             console.error("Failed to load data", e);
@@ -154,7 +157,7 @@ const App: React.FC = () => {
   }
 
   if (!user) {
-    return <Auth onLogin={setUser} students={students} staffList={staffList} parentList={parentList} />;
+    return <Auth onLogin={setUser} students={students} staffList={staffList} parentList={parentList} adminList={adminList} />;
   }
 
   return (
@@ -233,6 +236,8 @@ const App: React.FC = () => {
                 setParentList={setParentList}
                 subjects={subjects}
                 setSubjects={setSubjects}
+                adminList={adminList}
+                setAdminList={setAdminList}
             />
             )}
             
